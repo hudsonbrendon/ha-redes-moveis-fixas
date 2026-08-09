@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import time
 
 from aiohttp import web
@@ -36,7 +37,10 @@ def verificar_assinatura(
 ) -> bool:
     """HMAC-SHA256 sobre `{timestamp}.{corpo cru}` com o secret do monitor."""
     mac = hmac.new(secret.encode(), f"{timestamp}.".encode() + body, hashlib.sha256)
-    return hmac.compare_digest(f"sha256={mac.hexdigest()}", assinatura)
+    esperado = f"sha256={mac.hexdigest()}".encode()
+    # compare_digest exige ASCII puro pra strings; comparando bytes evita o
+    # TypeError de um header de assinatura não-ASCII (ex.: "sha256=é").
+    return hmac.compare_digest(esperado, assinatura.encode())
 
 
 def _entry_por_webhook(hass: HomeAssistant, webhook_id: str) -> ConfigEntry | None:
@@ -50,7 +54,8 @@ def _candidatos(entry: ConfigEntry, payload: dict) -> list[ConfigSubentry]:
     evento = payload.get("evento")
     subs = list(entry.subentries.values())
     if evento == EVENTO_CIDADE:
-        ibge = payload.get("municipio", {}).get("codigo_ibge")
+        municipio = payload.get("municipio")
+        ibge = municipio.get("codigo_ibge") if isinstance(municipio, dict) else None
         return [
             s
             for s in subs
@@ -74,17 +79,20 @@ async def handle_webhook(
     assinatura = request.headers.get("X-RMF-Signature", "")
 
     try:
-        idade = abs(time.time() - float(timestamp))
+        ts_num = float(timestamp)
     except ValueError:
         _LOGGER.warning("Webhook RMF sem timestamp válido")
         return web.Response(status=401)
-    if idade > TOLERANCIA_TIMESTAMP_S:
-        _LOGGER.warning("Webhook RMF com timestamp fora da tolerância (%ss)", idade)
+    # math.isfinite descarta nan/inf, que passariam ilesos pelo `abs(...) > tolerância`.
+    if not math.isfinite(ts_num) or abs(time.time() - ts_num) > TOLERANCIA_TIMESTAMP_S:
+        _LOGGER.warning("Webhook RMF com timestamp fora da tolerância")
         return web.Response(status=401)
 
     try:
         payload = json.loads(body)
-    except json.JSONDecodeError:
+    except ValueError:  # inclui json.JSONDecodeError e UnicodeDecodeError
+        return web.Response(status=400)
+    if not isinstance(payload, dict):
         return web.Response(status=400)
 
     for subentry in _candidatos(entry, payload):

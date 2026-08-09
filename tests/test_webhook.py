@@ -1,5 +1,6 @@
 """Testes do handler de webhook."""
 
+import copy
 import hashlib
 import hmac
 import json
@@ -23,6 +24,8 @@ from custom_components.redes_moveis_fixas.webhook import (
 from .conftest import load_fixture
 
 SECRET = "whsec_test_1d90aa"
+SECRET_MUNICIPIO = "whsec_muni_1d90aa"
+SECRET_IOS = "whsec_ios_2e81bb"
 WEBHOOK_ID = "wh_test_123"
 
 
@@ -52,7 +55,7 @@ def entry(hass):
                     "codigo_ibge": 3170206,
                     "monitorar": True,
                     "monitor_id": "9f1c0001",
-                    "monitor_secret": SECRET,
+                    "monitor_secret": SECRET_MUNICIPIO,
                 },
                 subentry_type="municipio",
                 title="Uberlândia (MG)",
@@ -64,7 +67,7 @@ def entry(hass):
                     "operadoras": [],
                     "incluir_beta": False,
                     "monitor_id": "3ab7f001",
-                    "monitor_secret": SECRET,
+                    "monitor_secret": SECRET_IOS,
                 },
                 subentry_type="monitor_ios",
                 title="Monitor iOS",
@@ -86,14 +89,21 @@ async def test_assinatura_valida():
 async def test_webhook_cidade_despacha(hass, entry):
     payload = load_fixture("webhook_cidade.json")
     body = json.dumps(payload).encode()
-    ts, sig = _assinar(body)
+    ts, sig = _assinar(body, secret=SECRET_MUNICIPIO)
 
     sub_municipio = next(
         s for s in entry.subentries.values() if s.subentry_type == "municipio"
     )
+    sub_ios = next(
+        s for s in entry.subentries.values() if s.subentry_type == "monitor_ios"
+    )
     recebidos = []
     async_dispatcher_connect(
         hass, SIGNAL_NOVIDADE.format(sub_municipio.subentry_id), recebidos.append
+    )
+    recebidos_ios = []
+    async_dispatcher_connect(
+        hass, SIGNAL_NOVIDADE.format(sub_ios.subentry_id), recebidos_ios.append
     )
     eventos_bus = []
     hass.bus.async_listen(EVENT_NOVIDADE, lambda e: eventos_bus.append(e))
@@ -108,12 +118,14 @@ async def test_webhook_cidade_despacha(hass, entry):
     assert resp.status == 200
     assert recebidos[0]["evento"] == "novidades.cidade"
     assert eventos_bus[0].data["payload"]["total"] == 2
+    # o roteamento por IBGE não deve vazar pro subentry de iOS
+    assert recebidos_ios == []
 
 
 async def test_webhook_ios_despacha(hass, entry):
     payload = load_fixture("webhook_ios.json")
     body = json.dumps(payload).encode()
-    ts, sig = _assinar(body)
+    ts, sig = _assinar(body, secret=SECRET_IOS)
 
     sub_ios = next(
         s for s in entry.subentries.values() if s.subentry_type == "monitor_ios"
@@ -132,6 +144,20 @@ async def test_webhook_ios_despacha(hass, entry):
 
     assert resp.status == 200
     assert recebidos[0]["novidades"][0]["operadora"]["nome"] == "TIM"
+
+
+async def test_webhook_cidade_ibge_sem_correspondencia_401(hass, entry):
+    payload = copy.deepcopy(load_fixture("webhook_cidade.json"))
+    payload["municipio"]["codigo_ibge"] = 9999999
+    body = json.dumps(payload).encode()
+    ts, sig = _assinar(body, secret=SECRET_MUNICIPIO)
+
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": sig}),
+    )
+    assert resp.status == 401
 
 
 async def test_assinatura_invalida_401(hass, entry):
@@ -159,3 +185,88 @@ async def test_timestamp_velho_401(hass, entry):
         FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": sig}),
     )
     assert resp.status == 401
+
+
+async def test_timestamp_futuro_401(hass, entry):
+    payload = load_fixture("webhook_ios.json")
+    body = json.dumps(payload).encode()
+    ts_futuro = str(int(time.time()) + 3600)
+    ts, sig = _assinar(body, secret=SECRET_IOS, ts=ts_futuro)
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": sig}),
+    )
+    assert resp.status == 401
+
+
+async def test_timestamp_ausente_401(hass, entry):
+    payload = load_fixture("webhook_ios.json")
+    body = json.dumps(payload).encode()
+    _, sig = _assinar(body, secret=SECRET_IOS)
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Signature": sig}),
+    )
+    assert resp.status == 401
+
+
+async def test_assinatura_ausente_401(hass, entry):
+    payload = load_fixture("webhook_ios.json")
+    body = json.dumps(payload).encode()
+    ts = str(int(time.time()))
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts}),
+    )
+    assert resp.status == 401
+
+
+async def test_assinatura_nao_ascii_401(hass, entry):
+    payload = load_fixture("webhook_ios.json")
+    body = json.dumps(payload).encode()
+    ts = str(int(time.time()))
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(
+            body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": "sha256=é"}
+        ),
+    )
+    assert resp.status == 401
+
+
+async def test_json_malformado_400(hass, entry):
+    body = b"\x80abc"  # UTF-8 inválido
+    ts = str(int(time.time()))
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": "sha256=x"}),
+    )
+    assert resp.status == 400
+
+
+async def test_json_nao_objeto_400(hass, entry):
+    body = json.dumps([1, 2]).encode()
+    ts = str(int(time.time()))
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": "sha256=x"}),
+    )
+    assert resp.status == 400
+
+
+async def test_webhook_id_desconhecido_404(hass, entry):
+    payload = load_fixture("webhook_ios.json")
+    body = json.dumps(payload).encode()
+    ts, sig = _assinar(body, secret=SECRET_IOS)
+    resp = await handle_webhook(
+        hass,
+        "wh_outro_id",
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": sig}),
+    )
+    assert resp.status == 404
