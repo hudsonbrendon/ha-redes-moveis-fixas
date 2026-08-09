@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "service": "api.redesmoveisfixas.com",
+  "uptime": 86400,
+  "dependencias": [
+    {"nome": "cobertura", "ok": true, "atualizado_em": "2026-07-22T09:14:02.000Z", "versao": "m8k2c1x-4rfz9"},
+    {"nome": "estacoes", "ok": true, "atualizado_em": "2026-07-23T11:02:47.000Z", "versao": "m8mq7ab-2p0kd"}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "evento": "novidades.ios",
+  "entrega_id": "8b52cafe",
+  "enviado_em": "2026-07-26T04:31:07.000Z",
+  "total": 1,
+  "novidades": [
+    {
+      "operadora": {"id": "TIM_br", "nome": "TIM", "pais": "Brasil", "pais_iso": "BR"},
+      "tipo": "alterada",
+      "ocorrido_em": "2026-07-26T04:18:37.000Z",
+      "beta": false,
+      "ios_beta_versao": null,
+      "bundle": {"from": "70.0", "to": "70.1"},
+      "recursos_adicionados": ["cresimtr"],
+      "recursos_removidos": [],
+      "rotulos_adicionados": ["eSIM Cross-Platform"],
+      "rotulos_removidos": []
+    }
+  ],
+  "fonte": "Apple (carrier bundles)"
+}

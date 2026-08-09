@@ -1,0 +1,22 @@
+{
+  "status": "ok",
+  "dados": {
+    "cobertura": [
+      {
+        "provedor": "Vivo",
+        "qualidade_global": {"score_percentual": 90, "classificacao": "Excelente"},
+        "tecnologias_suportadas": [
+          {"rede": "5G", "forca_sinal": 5, "status": "Excelente"},
+          {"rede": "4G", "forca_sinal": 4, "status": "Boa"}
+        ]
+      },
+      {
+        "provedor": "Claro",
+        "qualidade_global": {"score_percentual": 72, "classificacao": "Boa"},
+        "tecnologias_suportadas": [
+          {"rede": "4G", "forca_sinal": 4, "status": "Boa"}
+        ]
+      }
+    ]
+  }
+}

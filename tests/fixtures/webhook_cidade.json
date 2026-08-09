@@ -1,0 +1,12 @@
+{
+  "evento": "novidades.cidade",
+  "entrega_id": "c7a1beef",
+  "enviado_em": "2026-07-26T11:04:12.000Z",
+  "municipio": {"codigo_ibge": 3170206, "nome": "Uberlândia", "uf": "MG"},
+  "total": 2,
+  "erbs": [
+    {"id": "1234567", "operadora": "Vivo", "nova": true, "tecnologias": ["LTE", "NR"], "tecnologias_novas": ["NR"], "coordenadas": {"lat": -18.9186, "lon": -48.2772}},
+    {"id": "2222222", "operadora": "TIM", "nova": false, "tecnologias": ["LTE", "NR"], "tecnologias_novas": ["NR"], "coordenadas": {"lat": -18.92, "lon": -48.28}}
+  ],
+  "fonte": "Anatel (Mosaico)"
+}

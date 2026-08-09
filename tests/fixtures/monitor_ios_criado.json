@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "dados": {
+    "id": "3ab7f001",
+    "url": "https://ha.example.com/api/webhook/abc",
+    "paises": ["BR"],
+    "operadoras": [],
+    "incluir_beta": false,
+    "secret": "whsec_test_1d90aa"
+  }
+}
