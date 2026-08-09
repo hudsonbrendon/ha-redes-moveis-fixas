@@ -155,7 +155,16 @@ class LocalSubentryFlow(ConfigSubentryFlow):
                 else user_input[CONF_ENTITY_ID]
             )
             return self.async_create_entry(
-                title=titulo, data={CONF_MODO: self._modo, **user_input}
+                title=titulo,
+                data={
+                    CONF_MODO: self._modo,
+                    CONF_ENTITY_ID: user_input[CONF_ENTITY_ID],
+                    CONF_INTERVALO_COBERTURA: int(
+                        user_input[CONF_INTERVALO_COBERTURA]
+                    ),
+                    CONF_INTERVALO_ERBS: int(user_input[CONF_INTERVALO_ERBS]),
+                    CONF_MAX_GEO: int(user_input[CONF_MAX_GEO]),
+                },
             )
         dominio = "zone" if self._modo == "zona" else "person"
         schema = vol.Schema(
@@ -209,7 +218,9 @@ class MunicipioSubentryFlow(ConfigSubentryFlow):
                     data={
                         CONF_IBGE: int(user_input[CONF_IBGE]),
                         CONF_MONITORAR: user_input[CONF_MONITORAR],
-                        CONF_INTERVALO_MUNICIPIO: user_input[CONF_INTERVALO_MUNICIPIO],
+                        CONF_INTERVALO_MUNICIPIO: int(
+                            user_input[CONF_INTERVALO_MUNICIPIO]
+                        ),
                     },
                 )
         schema = vol.Schema(
