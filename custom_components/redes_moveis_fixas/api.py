@@ -1,0 +1,146 @@
+"""Cliente HTTP puro da API RMF (sem dependência do Home Assistant)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import aiohttp
+
+from .const import BASE_URL
+
+
+class RMFError(Exception):
+    """Erro genérico da API RMF."""
+
+
+class RMFAuthError(RMFError):
+    """Token inválido ou expirado (403)."""
+
+
+class RMFRateLimitError(RMFError):
+    """Cota excedida (429)."""
+
+
+class RMFNotFoundError(RMFError):
+    """Recurso não encontrado (404)."""
+
+
+def _rota(tipo: str) -> str:
+    if tipo not in ("cidade", "ios"):
+        raise ValueError(f"tipo inválido: {tipo}")
+    return tipo
+
+
+class RMFClient:
+    """Cliente assíncrono da API redesmoveisfixas.com."""
+
+    def __init__(self, session: aiohttp.ClientSession, token: str) -> None:
+        self._session = session
+        self._token = token
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        auth: bool = True,
+    ) -> Any:
+        headers = {"Authorization": f"Bearer {self._token}"} if auth else {}
+        try:
+            async with self._session.request(
+                method,
+                f"{BASE_URL}{path}",
+                params=params,
+                json=json,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status == 403:
+                    raise RMFAuthError(await resp.text())
+                if resp.status == 429:
+                    raise RMFRateLimitError(await resp.text())
+                if resp.status == 404:
+                    raise RMFNotFoundError(await resp.text())
+                if resp.status >= 400:
+                    raise RMFError(f"HTTP {resp.status}: {await resp.text()}")
+                if resp.status == 204:
+                    return None
+                return await resp.json()
+        except aiohttp.ClientError as err:
+            raise RMFError(f"Erro de conexão: {err}") from err
+
+    @staticmethod
+    def _csv(value: list[str] | None) -> str | None:
+        return ",".join(value) if value else None
+
+    async def async_cobertura(self, lat: float, lon: float) -> dict:
+        payload = await self._request(
+            "GET", "/api/cobertura", params={"lat": lat, "lon": lon}
+        )
+        return payload["dados"]
+
+    async def async_estacoes(
+        self,
+        lat: float,
+        lon: float,
+        *,
+        operadora: list[str] | None = None,
+        tecnologia: list[str] | None = None,
+        banda: list[str] | None = None,
+        limite: int = 200,
+        offset: int = 0,
+    ) -> dict:
+        params: dict[str, Any] = {"lat": lat, "lon": lon, "limite": limite}
+        if offset:
+            params["offset"] = offset
+        for key, val in (
+            ("operadora", self._csv(operadora)),
+            ("tecnologia", self._csv(tecnologia)),
+            ("banda", self._csv(banda)),
+        ):
+            if val:
+                params[key] = val
+        payload = await self._request("GET", "/api/estacoes", params=params)
+        return payload["dados"]
+
+    async def async_resumo_municipio(self, codigo_ibge: int) -> dict:
+        payload = await self._request("GET", f"/api/municipios/{codigo_ibge}/resumo")
+        return payload["dados"]
+
+    async def async_health(self) -> dict:
+        return await self._request("GET", "/health", auth=False)
+
+    async def async_listar_monitores(self, tipo: str) -> list[dict]:
+        payload = await self._request("GET", f"/api/monitorar-{_rota(tipo)}")
+        return payload["dados"]
+
+    async def async_criar_monitor_cidade(
+        self, url: str, municipios: list[str], descricao: str | None = None
+    ) -> dict:
+        body: dict[str, Any] = {"url": url, "municipios": municipios}
+        if descricao:
+            body["descricao"] = descricao
+        payload = await self._request("POST", "/api/monitorar-cidade", json=body)
+        return payload["dados"]
+
+    async def async_criar_monitor_ios(
+        self,
+        url: str,
+        paises: list[str],
+        operadoras: list[str] | None = None,
+        incluir_beta: bool = False,
+    ) -> dict:
+        body: dict[str, Any] = {
+            "url": url,
+            "paises": paises,
+            "incluir_beta": incluir_beta,
+        }
+        if operadoras:
+            body["operadoras"] = operadoras
+        payload = await self._request("POST", "/api/monitorar-ios", json=body)
+        return payload["dados"]
+
+    async def async_remover_monitor(self, tipo: str, monitor_id: str) -> None:
+        await self._request("DELETE", f"/api/monitorar-{_rota(tipo)}/{monitor_id}")
