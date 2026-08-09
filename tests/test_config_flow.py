@@ -2,12 +2,15 @@
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+from aioresponses import aioresponses
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.redes_moveis_fixas.api import RMFAuthError, RMFError
-from custom_components.redes_moveis_fixas.const import DOMAIN
+from custom_components.redes_moveis_fixas.config_flow import _uid, _validar_token
+from custom_components.redes_moveis_fixas.const import BASE_URL, DOMAIN
 
 
 async def test_flow_cria_entry(hass):
@@ -96,3 +99,47 @@ async def test_reauth(hass):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert entry.data["token"] == "novo"
+
+
+async def test_reauth_atualiza_unique_id(hass):
+    """Reauth troca o token E o unique_id, senão um `user` flow com o token
+    novo não bate com nenhuma entry e cria uma segunda entry duplicada."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={"token": "tok_velho"}, unique_id=_uid("tok_velho")
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+
+    with patch(
+        "custom_components.redes_moveis_fixas.config_flow._validar_token",
+        AsyncMock(return_value=None),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok_novo"}
+        )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data["token"] == "tok_novo"
+    assert entry.unique_id == _uid("tok_novo")
+
+    with patch(
+        "custom_components.redes_moveis_fixas.config_flow._validar_token",
+        AsyncMock(return_value=None),
+    ):
+        r2 = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        r2 = await hass.config_entries.flow.async_configure(
+            r2["flow_id"], {"token": "tok_novo"}
+        )
+    assert r2["type"] is FlowResultType.ABORT
+    assert r2["reason"] == "already_configured"
+
+
+async def test_validar_token_real_propaga_403(hass):
+    """`_validar_token` sem mock: garante que ele bate em GET /api/monitorar-ios
+    e propaga RMFAuthError num 403 real (nenhum teste acima exercita o corpo)."""
+    with aioresponses() as m:
+        m.get(f"{BASE_URL}/api/monitorar-ios", status=403, body="forbidden")
+        with pytest.raises(RMFAuthError):
+            await _validar_token(hass, "tok_ruim")

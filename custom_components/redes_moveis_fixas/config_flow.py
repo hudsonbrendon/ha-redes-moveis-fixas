@@ -22,6 +22,11 @@ async def _validar_token(hass: HomeAssistant, token: str) -> None:
     await client.async_listar_monitores("ios")
 
 
+def _uid(token: str) -> str:
+    """Hash do token usado como unique_id (nunca o token cru)."""
+    return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
 class RMFConfigFlow(ConfigFlow, domain=DOMAIN):
     """Flow da entry hub (token)."""
 
@@ -43,8 +48,7 @@ class RMFConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             errors = await self._checar(user_input[CONF_TOKEN])
             if not errors:
-                uid = hashlib.sha256(user_input[CONF_TOKEN].encode()).hexdigest()[:16]
-                await self.async_set_unique_id(uid)
+                await self.async_set_unique_id(_uid(user_input[CONF_TOKEN]))
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title="Redes Móveis Fixas", data=user_input
@@ -67,6 +71,7 @@ class RMFConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 return self.async_update_reload_and_abort(
                     self._get_reauth_entry(),
+                    unique_id=_uid(user_input[CONF_TOKEN]),
                     data_updates={CONF_TOKEN: user_input[CONF_TOKEN]},
                 )
         return self.async_show_form(
