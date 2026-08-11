@@ -1,0 +1,13 @@
+{
+  "status": "ok",
+  "dados": {
+    "municipio": {"codigo_ibge": 3550308, "nome": "São Paulo", "uf": "SP"},
+    "base_atualizada_em": "2026-07-25T09:14:03.000Z",
+    "totais": {"estacoes": 77790, "erbs_celular": 6364, "outras_estacoes": 71426},
+    "por_tecnologia": {"2G": 4102, "3G": 4890, "4G": 6201, "5G": 3944},
+    "por_operadora": [
+      {"operadora": "Vivo", "erbs": 2230, "tecnologias": {"2G": 1480, "3G": 1712, "4G": 2190, "5G": 1402}}
+    ],
+    "fonte": "Anatel (Mosaico)"
+  }
+}

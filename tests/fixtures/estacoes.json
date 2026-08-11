@@ -1,0 +1,34 @@
+{
+  "status": "ok",
+  "dados": {
+    "raio_utilizado_km": 5,
+    "filtros": {"operadora": null, "tecnologia": null, "banda": null},
+    "total_erbs": 418,
+    "retornadas": 2,
+    "limite": 200,
+    "offset": 0,
+    "tem_mais": true,
+    "erbs": [
+      {
+        "id": "1234567",
+        "operadora": "Claro",
+        "distancia_km": 1.2,
+        "tecnologias": ["LTE", "NR"],
+        "bandas": ["3", "1", "40", "78"],
+        "coordenadas": {"lat": -23.5601, "lon": -46.6503},
+        "endereco": {"logradouro": "Av. Paulista, 1000", "cidade": "São Paulo", "uf": "SP"},
+        "estacao": {"tipo": "Estação base de celular (FB)", "infraestrutura": "Torre", "licenciamento": "2019-04-02", "validade": "2029-04-02"}
+      },
+      {
+        "id": "7654321",
+        "operadora": "Vivo",
+        "distancia_km": 2.4,
+        "tecnologias": ["LTE"],
+        "bandas": ["7"],
+        "coordenadas": {"lat": -23.5702, "lon": -46.6604},
+        "endereco": {"logradouro": "Rua Augusta, 500", "cidade": "São Paulo", "uf": "SP"},
+        "estacao": {"tipo": "Estação base de celular (FB)", "infraestrutura": "Poste", "licenciamento": "2020-01-15", "validade": "2030-01-15"}
+      }
+    ]
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Redes Móveis Fixas",
+        "description": "API token (Bearer). Create yours at redesmoveisfixas.com/createapi.",
+        "data": {"token": "Token"}
+      },
+      "reauth_confirm": {
+        "title": "Token expired",
+        "description": "The RMF API token expired (90-day validity). Enter a new one.",
+        "data": {"token": "Token"}
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid or expired token",
+      "cannot_connect": "Failed to connect to the API"
+    },
+    "abort": {
+      "already_configured": "This token is already configured",
+      "reauth_successful": "Token updated"
+    }
+  },
+  "config_subentries": {
+    "local": {
+      "entry_type": "Location",
+      "initiate_flow": {"user": "Add location"},
+      "step": {
+        "user": {
+          "title": "Location type",
+          "data": {"modo": "Track"}
+        },
+        "alvo": {
+          "title": "Location and intervals",
+          "data": {
+            "entity_id": "Zone or person",
+            "intervalo_cobertura": "Coverage interval (min)",
+            "intervalo_erbs": "Towers interval (h)",
+            "max_geo": "Max. towers on map (0 disables)"
+          }
+        }
+      }
+    },
+    "municipio": {
+      "entry_type": "Municipality",
+      "initiate_flow": {"user": "Add municipality"},
+      "error": {
+        "ibge_invalido": "IBGE code not found",
+        "cannot_connect": "Failed to connect to the API"
+      },
+      "step": {
+        "user": {
+          "title": "Municipality (IBGE code)",
+          "data": {
+            "codigo_ibge": "IBGE code (7 digits)",
+            "monitorar": "Monitor new towers (daily webhook)",
+            "intervalo_municipio": "Summary interval (h)"
+          }
+        }
+      }
+    },
+    "monitor_ios": {
+      "entry_type": "iOS monitor",
+      "initiate_flow": {"user": "Add iOS monitor"},
+      "step": {
+        "user": {
+          "title": "iOS carrier bundles",
+          "data": {
+            "paises": "Countries (ISO-2, comma-separated; * = all)",
+            "operadoras": "Carriers (optional, comma-separated)",
+            "incluir_beta": "Include iOS beta versions"
+          }
+        }
+      }
+    }
+  },
+  "issues": {
+    "monitor_inativo": {
+      "title": "Monitor \"{nome}\" deactivated",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Recreate monitor",
+            "description": "The RMF API deactivated this monitor after 10 failed deliveries. Confirm to register a new one with your current Home Assistant URL."
+          }
+        },
+        "abort": {
+          "entry_not_found": "The Redes Móveis Fixas integration was removed",
+          "entry_not_loaded": "The Redes Móveis Fixas integration is unloaded. Reload it and try again",
+          "subentry_not_found": "This location/monitor no longer exists"
+        }
+      }
+    }
+  },
+  "selector": {
+    "modo": {
+      "options": {"zona": "Fixed zone", "pessoa": "Follow person"}
+    }
+  },
+  "services": {
+    "consultar_cobertura": {
+      "name": "Query coverage",
+      "description": "Queries mobile coverage (carrier, technology, signal strength) at a location.",
+      "fields": {
+        "latitude": {"name": "Latitude", "description": "Latitude of the point to query."},
+        "longitude": {"name": "Longitude", "description": "Longitude of the point to query."},
+        "entity_id": {
+          "name": "Zone or person",
+          "description": "Zone or person to read latitude/longitude from. If given, takes precedence over the explicit latitude/longitude fields."
+        }
+      }
+    },
+    "buscar_estacoes": {
+      "name": "Search stations",
+      "description": "Searches for nearby ERBs (base transceiver stations) at a location, with optional carrier, technology and band filters.",
+      "fields": {
+        "latitude": {"name": "Latitude", "description": "Latitude of the search point."},
+        "longitude": {"name": "Longitude", "description": "Longitude of the search point."},
+        "entity_id": {
+          "name": "Zone or person",
+          "description": "Zone or person to read latitude/longitude from. If given, takes precedence over the explicit latitude/longitude fields."
+        },
+        "operadora": {"name": "Carrier", "description": "Filter by carrier(s), comma-separated."},
+        "tecnologia": {"name": "Technology", "description": "Filter by technology(ies), comma-separated."},
+        "banda": {"name": "Band", "description": "Filter by band(s), comma-separated."},
+        "limite": {"name": "Limit", "description": "Maximum number of stations to return."}
+      }
+    },
+    "resumo_do_municipio": {
+      "name": "Municipality summary",
+      "description": "Queries the aggregated station summary for a municipality by its IBGE code.",
+      "fields": {
+        "codigo_ibge": {"name": "IBGE code", "description": "IBGE code of the municipality (7 digits)."}
+      }
+    }
+  }
+}
