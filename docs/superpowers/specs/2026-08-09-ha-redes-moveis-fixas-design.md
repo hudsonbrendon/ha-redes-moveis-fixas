@@ -57,13 +57,13 @@ Nomenclatura: `<medida>_<prep>_<local>` PT-BR (padrão do usuário).
 
 **Device por subentry Município** (ex. "Uberlândia"):
 - `sensor.erbs_em_uberlandia` (celular), `sensor.estacoes_em_uberlandia` (total)
-- `sensor.erbs_5g_em_uberlandia` + 4G/3G/2G — `state_class: total`; attrs: quebra por operadora
+- `sensor.erbs_5g_em_uberlandia` + 4G/3G/2G — `state_class: measurement` (leitura pontual a cada atualização, não um acumulador — `total` geraria uma estatística de soma e trataria uma queda de contagem como reset); attrs: quebra por operadora
 - `sensor.base_de_uberlandia_atualizada_em`
-- `event.novas_torres_em_uberlandia` — event_types: `nova_erb`, `upgrade_tecnologia`; attrs do payload do webhook
+- `event.novas_torres_em_uberlandia` — event_types: `nova_erb`, `upgrade_tecnologia`; attrs do payload do webhook; um `async_write_ha_state()` por item da entrega (não um só no fim), senão itens 1..N-1 de uma entrega com várias novidades nunca aparecem no state machine
 - `binary_sensor.monitor_de_uberlandia_ativo` — attrs: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro`
 
 **Device por subentry Monitor iOS**:
-- `event.novidades_do_ios` — event_types: `nova`, `alterada`, `removida`; attrs: operadora, país, bundle from→to, recursos ±, rótulos ±, beta
+- `event.novidades_do_ios` — event_types: `nova`, `alterada`, `removida`; attrs: operadora, país, bundle from→to, recursos ±, rótulos ±, beta; mesmo write-por-item da entrega acima
 - `sensor.ultima_novidade_do_ios` — timestamp da última entrega
 - `binary_sensor.monitor_ios_ativo` — attrs: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro`
 
@@ -98,6 +98,7 @@ Subentry de pessoa escuta `async_track_state_change_event` do `person.X`. Refaz 
 - `secret` guardado em `subentry.data`; redigido no diagnostics junto com o token.
 - Criar subentry com monitor → POST na API; remover subentry → DELETE.
 - External_url mudou → repair issue + fix flow recria monitores com URL nova.
+- Sem URL pública resolvível (`NoURLAvailableError`): degrada em vez de bloquear. Se nenhuma subentry precisa provisionar um monitor novo, a entry carrega normalmente e só a varredura de órfãos é pulada (log em debug); se uma subentry precisa provisionar e não há URL, o setup levanta `ConfigEntryNotReady` e tenta de novo depois.
 
 ## Repairs
 
