@@ -1,9 +1,8 @@
 """Testes de setup/unload da entry."""
 
 from datetime import timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-import pytest
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.helpers.network import NoURLAvailableError
@@ -12,72 +11,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.redes_moveis_fixas.api import RMFAuthError, RMFError
 from custom_components.redes_moveis_fixas.const import DOMAIN
 
-from .conftest import load_fixture
 
-
-def _mock_client():
-    client = AsyncMock()
-    client.async_health.return_value = load_fixture("health.json")
-    client.async_listar_monitores.return_value = []
-    client.async_cobertura.return_value = load_fixture("cobertura.json")["dados"]
-    client.async_estacoes.return_value = load_fixture("estacoes.json")["dados"]
-    client.async_resumo_municipio.return_value = load_fixture("resumo_municipio.json")[
-        "dados"
-    ]
-    client.async_criar_monitor_ios.return_value = load_fixture(
-        "monitor_ios_criado.json"
-    )["dados"]
-    client.async_criar_monitor_cidade.return_value = {
-        "id": "9f1c0001",
-        "secret": "whsec_cidade_aa",
-    }
-    return client
-
-
-@pytest.fixture
-def entry(hass):
-    e = MockConfigEntry(
-        domain=DOMAIN,
-        data={"token": "tok", "webhook_id": "wh_fixo"},
-        unique_id="uid1",
-        subentries_data=[
-            ConfigSubentryData(
-                data={
-                    "modo": "zona",
-                    "entity_id": "zone.home",
-                    "intervalo_cobertura": 30,
-                    "intervalo_erbs": 6,
-                    "max_geo": 25,
-                },
-                subentry_type="local",
-                title="Casa",
-                unique_id=None,
-            ),
-            ConfigSubentryData(
-                data={
-                    "codigo_ibge": 3550308,
-                    "monitorar": True,
-                    "intervalo_municipio": 12,
-                },
-                subentry_type="municipio",
-                title="São Paulo (SP)",
-                unique_id=None,
-            ),
-            ConfigSubentryData(
-                data={"paises": ["BR"], "operadoras": [], "incluir_beta": False},
-                subentry_type="monitor_ios",
-                title="Monitor iOS",
-                unique_id=None,
-            ),
-        ],
-    )
-    e.add_to_hass(hass)
-    return e
-
-
-async def test_setup_e_unload(hass, entry):
+async def test_setup_e_unload(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -85,11 +22,11 @@ async def test_setup_e_unload(hass, entry):
             return_value="https://ha.example.com/api/webhook/wh_fixo",
         ),
     ):
-        assert await hass.config_entries.async_setup(entry.entry_id)
+        assert await hass.config_entries.async_setup(entry_completa.entry_id)
         await hass.async_block_till_done()
 
-    assert entry.state is ConfigEntryState.LOADED
-    rt = entry.runtime_data
+    assert entry_completa.state is ConfigEntryState.LOADED
+    rt = entry_completa.runtime_data
     assert len(rt.cobertura) == 1
     assert len(rt.erbs) == 1
     assert len(rt.municipio) == 1
@@ -99,7 +36,7 @@ async def test_setup_e_unload(hass, entry):
     assert coord.lon == -35.2
 
     # monitores provisionados: secret gravado na subentry
-    subs = {s.subentry_type: s for s in entry.subentries.values()}
+    subs = {s.subentry_type: s for s in entry_completa.subentries.values()}
     assert subs["monitor_ios"].data["monitor_secret"] == "whsec_test_1d90aa"
     assert subs["monitor_ios"].data["monitor_id"] == "3ab7f001"
     assert subs["municipio"].data["monitor_id"] == "9f1c0001"
@@ -107,11 +44,11 @@ async def test_setup_e_unload(hass, entry):
     client.async_criar_monitor_ios.assert_awaited_once()
     client.async_criar_monitor_cidade.assert_awaited_once()
 
-    assert await hass.config_entries.async_unload(entry.entry_id)
-    assert entry.state is ConfigEntryState.NOT_LOADED
+    assert await hass.config_entries.async_unload(entry_completa.entry_id)
+    assert entry_completa.state is ConfigEntryState.NOT_LOADED
 
 
-async def test_setup_nao_recria_monitor_existente(hass):
+async def test_setup_nao_recria_monitor_existente(hass, mock_client):
     e = MockConfigEntry(
         domain=DOMAIN,
         data={"token": "tok", "webhook_id": "wh_fixo"},
@@ -132,7 +69,7 @@ async def test_setup_nao_recria_monitor_existente(hass):
         ],
     )
     e.add_to_hass(hass)
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -145,9 +82,9 @@ async def test_setup_nao_recria_monitor_existente(hass):
     client.async_criar_monitor_ios.assert_not_awaited()
 
 
-async def test_webhook_registrado_e_publico(hass, entry):
+async def test_webhook_registrado_e_publico(hass, entry_completa, mock_client):
     """O webhook precisa aceitar POST vindo da internet (local_only=False)."""
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -158,7 +95,7 @@ async def test_webhook_registrado_e_publico(hass, entry):
             "custom_components.redes_moveis_fixas.webhook_async_register"
         ) as registrar,
     ):
-        assert await hass.config_entries.async_setup(entry.entry_id)
+        assert await hass.config_entries.async_setup(entry_completa.entry_id)
         await hass.async_block_till_done()
 
     kwargs = registrar.call_args.kwargs
@@ -166,7 +103,7 @@ async def test_webhook_registrado_e_publico(hass, entry):
     assert list(kwargs["allowed_methods"]) == ["POST"]
 
 
-async def test_modo_pessoa_segue_deslocamento(hass, freezer):
+async def test_modo_pessoa_segue_deslocamento(hass, freezer, mock_client):
     """Só refaz a consulta se andou >500 m; movimento curto é ignorado."""
     from custom_components.redes_moveis_fixas.const import SUBENTRY_LOCAL
 
@@ -193,7 +130,7 @@ async def test_modo_pessoa_segue_deslocamento(hass, freezer):
         ],
     )
     e.add_to_hass(hass)
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -274,7 +211,7 @@ def _entry_monitores(hass, unique_id="uid_mon", **extra_ios):
     return e
 
 
-async def test_setup_roda_uma_vez_so(hass):
+async def test_setup_roda_uma_vez_so(hass, mock_client):
     """Gravar monitor_id/secret não pode disparar reload no meio do setup.
 
     O listener de update é registrado no fim de async_setup_entry justamente
@@ -284,7 +221,7 @@ async def test_setup_roda_uma_vez_so(hass):
     aparece aqui como mais de um refresh do HealthCoordinator.
     """
     e = _entry_monitores(hass)
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -300,7 +237,7 @@ async def test_setup_roda_uma_vez_so(hass):
     assert client.async_criar_monitor_cidade.await_count == 1
 
 
-async def test_municipio_nao_recria_monitor_existente(hass):
+async def test_municipio_nao_recria_monitor_existente(hass, mock_client):
     e = MockConfigEntry(
         domain=DOMAIN,
         data={"token": "tok", "webhook_id": "wh_fixo"},
@@ -321,7 +258,7 @@ async def test_municipio_nao_recria_monitor_existente(hass):
         ],
     )
     e.add_to_hass(hass)
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -336,10 +273,10 @@ async def test_municipio_nao_recria_monitor_existente(hass):
     assert subentry.data["monitor_secret"] == "whsec_ja_tem"
 
 
-async def test_sem_url_externa_vira_setup_retry(hass):
+async def test_sem_url_externa_vira_setup_retry(hass, mock_client):
     """Sem external_url e com monitor a provisionar: retentável, não SETUP_ERROR."""
     e = _entry_monitores(hass, unique_id="uid_nourl")
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
@@ -353,9 +290,9 @@ async def test_sem_url_externa_vira_setup_retry(hass):
     client.async_criar_monitor_cidade.assert_not_awaited()
 
 
-async def test_api_fora_do_ar_vira_setup_retry(hass, entry):
+async def test_api_fora_do_ar_vira_setup_retry(hass, entry_completa, mock_client):
     """RMFError no primeiro refresh de coordinator: SETUP_RETRY."""
-    client = _mock_client()
+    client = mock_client
     client.async_health.side_effect = RMFError("502")
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
@@ -364,15 +301,15 @@ async def test_api_fora_do_ar_vira_setup_retry(hass, entry):
             return_value="https://ha.example.com/api/webhook/wh_fixo",
         ),
     ):
-        assert not await hass.config_entries.async_setup(entry.entry_id)
+        assert not await hass.config_entries.async_setup(entry_completa.entry_id)
         await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert entry_completa.state is ConfigEntryState.SETUP_RETRY
 
 
-async def test_erro_ao_criar_monitor_vira_setup_retry(hass):
+async def test_erro_ao_criar_monitor_vira_setup_retry(hass, mock_client):
     """RMFError na criação do monitor: SETUP_RETRY, não SETUP_ERROR."""
     e = _entry_monitores(hass, unique_id="uid_mon_erro")
-    client = _mock_client()
+    client = mock_client
     client.async_criar_monitor_cidade.side_effect = RMFError("502")
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
@@ -394,8 +331,10 @@ def _fluxos_reauth(hass):
     ]
 
 
-async def test_token_expirado_no_coordinator_abre_reauth(hass, entry):
-    client = _mock_client()
+async def test_token_expirado_no_coordinator_abre_reauth(
+    hass, entry_completa, mock_client
+):
+    client = mock_client
     client.async_health.side_effect = RMFAuthError("403")
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
@@ -404,15 +343,15 @@ async def test_token_expirado_no_coordinator_abre_reauth(hass, entry):
             return_value="https://ha.example.com/api/webhook/wh_fixo",
         ),
     ):
-        assert not await hass.config_entries.async_setup(entry.entry_id)
+        assert not await hass.config_entries.async_setup(entry_completa.entry_id)
         await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert entry_completa.state is ConfigEntryState.SETUP_ERROR
     assert _fluxos_reauth(hass)
 
 
-async def test_token_expirado_ao_criar_monitor_abre_reauth(hass):
+async def test_token_expirado_ao_criar_monitor_abre_reauth(hass, mock_client):
     e = _entry_monitores(hass, unique_id="uid_mon_auth")
-    client = _mock_client()
+    client = mock_client
     client.async_criar_monitor_cidade.side_effect = RMFAuthError("403")
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
@@ -427,7 +366,7 @@ async def test_token_expirado_ao_criar_monitor_abre_reauth(hass):
     assert _fluxos_reauth(hass)
 
 
-async def test_unload_libera_webhook_e_listener(hass):
+async def test_unload_libera_webhook_e_listener(hass, mock_client):
     """Unload precisa soltar de verdade o webhook e o listener da pessoa."""
     hass.states.async_set(
         "person.hudson", "home", {"latitude": -5.8, "longitude": -35.2}
@@ -452,7 +391,7 @@ async def test_unload_libera_webhook_e_listener(hass):
         ],
     )
     e.add_to_hass(hass)
-    client = _mock_client()
+    client = mock_client
     with (
         patch("custom_components.redes_moveis_fixas.RMFClient", return_value=client),
         patch(
