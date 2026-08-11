@@ -209,8 +209,9 @@ async def test_unload_remove_listener_do_gerente(hass, entry_completa, mock_clie
 async def test_registro_malformado_nao_quebra(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     mock_client.async_estacoes.return_value = {
-        "total_erbs": 4,
+        "total_erbs": 5,
         "erbs": [
+            "lixo",  # item não é nem um dict
             {
                 "operadora": "SemId",
                 "distancia_km": 1.0,

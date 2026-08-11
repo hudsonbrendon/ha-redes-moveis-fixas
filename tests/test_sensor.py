@@ -179,6 +179,7 @@ async def test_sensores_toleram_payload_malformado(hass, entry_completa, mock_cl
         "erbs": [
             {"operadora": "Claro"},  # sem distancia_km
             {"distancia_km": 3.0},  # sem operadora
+            "lixo",  # item não é nem um dict
         ],
     }
     mock_client.async_health.return_value = {
