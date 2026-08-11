@@ -319,8 +319,8 @@ async def test_fix_flow_recria_monitor(hass, entry_completa, mock_client):
 
     lista = load_fixture("monitores_ios_lista.json")["dados"]
     lista[0]["ativo"] = False
-    mock_client.async_listar_monitores.side_effect = (
-        lambda tipo: lista if tipo == "ios" else []
+    mock_client.async_listar_monitores.side_effect = lambda tipo: (
+        lista if tipo == "ios" else []
     )
     _marcar_monitor_ios(entry_completa)
     mock_client.async_criar_monitor_ios.return_value = {

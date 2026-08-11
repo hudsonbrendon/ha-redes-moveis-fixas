@@ -7,9 +7,9 @@ import json
 import time
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.redes_moveis_fixas.const import (
     DOMAIN,
@@ -231,9 +231,7 @@ async def test_assinatura_nao_ascii_401(hass, entry):
     resp = await handle_webhook(
         hass,
         WEBHOOK_ID,
-        FakeRequest(
-            body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": "sha256=é"}
-        ),
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": "sha256=é"}),
     )
     assert resp.status == 401
 

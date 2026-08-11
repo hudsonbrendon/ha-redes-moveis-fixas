@@ -57,9 +57,7 @@ async def async_setup_entry(
                 for c in (cob.data or {}).get("cobertura", [])
                 if (p := c.get("provedor")) is not None
             ]
-            entities += [
-                CoberturaOperadoraSensor(cob, subentry, p) for p in provedores
-            ]
+            entities += [CoberturaOperadoraSensor(cob, subentry, p) for p in provedores]
             entities.append(MelhorCoberturaSensor(cob, subentry))
             entities.append(ErbsPorPertoSensor(rt.erbs[sid], subentry))
             entities.append(DistanciaErbSensor(rt.erbs[sid], subentry))
@@ -226,9 +224,7 @@ class TotalSensor(RMFEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, subentry, campo: str, rotulo: str) -> None:
-        super().__init__(
-            coordinator, subentry, campo, f"{rotulo} em {subentry.title}"
-        )
+        super().__init__(coordinator, subentry, campo, f"{rotulo} em {subentry.title}")
         self._campo = campo
 
     @property

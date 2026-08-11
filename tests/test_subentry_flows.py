@@ -16,7 +16,10 @@ from .conftest import load_fixture
 @pytest.fixture
 async def entry(hass):
     e = MockConfigEntry(
-        domain=DOMAIN, data={"token": "tok"}, unique_id="uid1", state=config_entries.ConfigEntryState.LOADED
+        domain=DOMAIN,
+        data={"token": "tok"},
+        unique_id="uid1",
+        state=config_entries.ConfigEntryState.LOADED,
     )
     e.add_to_hass(hass)
     return e
@@ -24,7 +27,9 @@ async def entry(hass):
 
 async def test_subentry_local_zona(hass, entry):
     hass.states.async_set(
-        "zone.home", "0", {"latitude": -5.8, "longitude": -35.2, "friendly_name": "Casa"}
+        "zone.home",
+        "0",
+        {"latitude": -5.8, "longitude": -35.2, "friendly_name": "Casa"},
     )
     result = await hass.config_entries.subentries.async_init(
         (entry.entry_id, "local"), context={"source": config_entries.SOURCE_USER}

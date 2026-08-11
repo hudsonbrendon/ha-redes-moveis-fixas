@@ -93,9 +93,7 @@ class RMFConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=SCHEMA_TOKEN, errors=errors
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -159,9 +157,7 @@ class LocalSubentryFlow(ConfigSubentryFlow):
                 data={
                     CONF_MODO: self._modo,
                     CONF_ENTITY_ID: user_input[CONF_ENTITY_ID],
-                    CONF_INTERVALO_COBERTURA: int(
-                        user_input[CONF_INTERVALO_COBERTURA]
-                    ),
+                    CONF_INTERVALO_COBERTURA: int(user_input[CONF_INTERVALO_COBERTURA]),
                     CONF_INTERVALO_ERBS: int(user_input[CONF_INTERVALO_ERBS]),
                     CONF_MAX_GEO: int(user_input[CONF_MAX_GEO]),
                 },

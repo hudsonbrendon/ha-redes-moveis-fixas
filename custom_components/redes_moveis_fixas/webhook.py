@@ -10,7 +10,6 @@ import math
 import time
 
 from aiohttp import web
-
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -66,9 +65,7 @@ def _candidatos(entry: ConfigEntry, payload: dict) -> list[ConfigSubentry]:
     return []
 
 
-async def handle_webhook(
-    hass: HomeAssistant, webhook_id: str, request
-) -> web.Response:
+async def handle_webhook(hass: HomeAssistant, webhook_id: str, request) -> web.Response:
     """Valida assinatura+timestamp e despacha pro subentry dono do monitor."""
     entry = _entry_por_webhook(hass, webhook_id)
     if entry is None:

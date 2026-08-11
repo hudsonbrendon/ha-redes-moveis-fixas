@@ -91,14 +91,22 @@ async def test_criar_e_listar_monitor_ios(client):
 )
 async def test_erros(client, status, exc):
     with aioresponses() as m:
-        m.get(f"{BASE_URL}/api/cobertura?lat=0&lon=0", status=status, payload={"error": "x"})
+        m.get(
+            f"{BASE_URL}/api/cobertura?lat=0&lon=0",
+            status=status,
+            payload={"error": "x"},
+        )
         with pytest.raises(exc):
             await client.async_cobertura(0, 0)
 
 
 async def test_erro_http_generico_mapeia_para_rmferror(client):
     with aioresponses() as m:
-        m.get(f"{BASE_URL}/api/cobertura?lat=0&lon=0", status=500, payload={"error": "boom"})
+        m.get(
+            f"{BASE_URL}/api/cobertura?lat=0&lon=0",
+            status=500,
+            payload={"error": "boom"},
+        )
         with pytest.raises(RMFError):
             await client.async_cobertura(0, 0)
 
@@ -114,19 +122,27 @@ async def test_erro_conexao_mapeia_para_rmferror(client):
 
 
 def _headers_for(m, method: str, url: str) -> dict:
-    key = (method, next(k[1] for k in m.requests if k[0] == method and str(k[1]) == url))
+    key = (
+        method,
+        next(k[1] for k in m.requests if k[0] == method and str(k[1]) == url),
+    )
     return m.requests[key][-1].kwargs["headers"]
 
 
 async def test_auth_header_enviado_e_health_sem_auth(client):
     with aioresponses() as m:
-        m.get(f"{BASE_URL}/api/cobertura?lat=0&lon=0", payload=load_fixture("cobertura.json"))
+        m.get(
+            f"{BASE_URL}/api/cobertura?lat=0&lon=0",
+            payload=load_fixture("cobertura.json"),
+        )
         m.get(f"{BASE_URL}/health", payload=load_fixture("health.json"))
 
         await client.async_cobertura(0, 0)
         await client.async_health()
 
-        cobertura_headers = _headers_for(m, "GET", f"{BASE_URL}/api/cobertura?lat=0&lon=0")
+        cobertura_headers = _headers_for(
+            m, "GET", f"{BASE_URL}/api/cobertura?lat=0&lon=0"
+        )
         health_headers = _headers_for(m, "GET", f"{BASE_URL}/health")
 
     assert cobertura_headers["Authorization"] == "Bearer tok_test"
@@ -148,7 +164,9 @@ async def test_criar_monitor_cidade(client):
         dados = await client.async_criar_monitor_cidade(
             "https://ha.example.com/api/webhook/xyz", ["3550308"]
         )
-        key = next(k for k in m.requests if str(k[1]) == f"{BASE_URL}/api/monitorar-cidade")
+        key = next(
+            k for k in m.requests if str(k[1]) == f"{BASE_URL}/api/monitorar-cidade"
+        )
         body_sem_descricao = m.requests[key][-1].kwargs["json"]
     assert dados["secret"] == "whsec_cidade_test"
     assert body_sem_descricao == {
@@ -161,6 +179,8 @@ async def test_criar_monitor_cidade(client):
         await client.async_criar_monitor_cidade(
             "https://ha.example.com/api/webhook/xyz", ["3550308"], descricao="teste"
         )
-        key = next(k for k in m.requests if str(k[1]) == f"{BASE_URL}/api/monitorar-cidade")
+        key = next(
+            k for k in m.requests if str(k[1]) == f"{BASE_URL}/api/monitorar-cidade"
+        )
         body_com_descricao = m.requests[key][-1].kwargs["json"]
     assert body_com_descricao["descricao"] == "teste"

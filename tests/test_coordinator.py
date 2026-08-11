@@ -93,7 +93,9 @@ async def test_municipio_ok(hass, entry):
     client.async_resumo_municipio.return_value = load_fixture("resumo_municipio.json")[
         "dados"
     ]
-    coord = MunicipioCoordinator(hass, entry, client, "sub1", 3550308, timedelta(hours=6))
+    coord = MunicipioCoordinator(
+        hass, entry, client, "sub1", 3550308, timedelta(hours=6)
+    )
     dados = await coord._async_update_data()
     assert dados["municipio"]["nome"] == "São Paulo"
     client.async_resumo_municipio.assert_awaited_once_with(3550308)

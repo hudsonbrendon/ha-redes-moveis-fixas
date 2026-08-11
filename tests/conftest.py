@@ -33,9 +33,9 @@ def mock_client():
     client.async_listar_monitores.return_value = []
     client.async_cobertura.return_value = load_fixture("cobertura.json")["dados"]
     client.async_estacoes.return_value = load_fixture("estacoes.json")["dados"]
-    client.async_resumo_municipio.return_value = load_fixture(
-        "resumo_municipio.json"
-    )["dados"]
+    client.async_resumo_municipio.return_value = load_fixture("resumo_municipio.json")[
+        "dados"
+    ]
     client.async_criar_monitor_ios.return_value = load_fixture(
         "monitor_ios_criado.json"
     )["dados"]

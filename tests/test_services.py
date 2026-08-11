@@ -175,9 +175,7 @@ async def test_consultar_cobertura_entity_tem_precedencia_sobre_coords(
 ):
     """Quando ambos são informados, entity_id vence (comportamento fixado)."""
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
-    hass.states.async_set(
-        "zone.outra", "0", {"latitude": -23.5, "longitude": -46.6}
-    )
+    hass.states.async_set("zone.outra", "0", {"latitude": -23.5, "longitude": -46.6})
     await _setup(hass, entry_completa, mock_client)
 
     await hass.services.async_call(
