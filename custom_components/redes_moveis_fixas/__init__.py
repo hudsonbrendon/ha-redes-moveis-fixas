@@ -14,14 +14,14 @@ from homeassistant.components.webhook import (
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.network import NoURLAvailableError
 from homeassistant.util import dt as dt_util
 from homeassistant.util.location import distance
 
-from .api import RMFClient, RMFError
+from .api import RMFAuthError, RMFClient, RMFError
 from .const import (
     CONF_ENTITY_ID,
     CONF_IBGE,
@@ -106,17 +106,24 @@ async def _provisionar_monitor(
     if subentry.data.get(CONF_MONITOR_ID):
         return
     url = _url_webhook(hass, webhook_id)
-    if subentry.subentry_type == SUBENTRY_MUNICIPIO:
-        dados = await client.async_criar_monitor_cidade(
-            url, [str(subentry.data[CONF_IBGE])], descricao=subentry.title
-        )
-    else:
-        dados = await client.async_criar_monitor_ios(
-            url,
-            subentry.data[CONF_PAISES],
-            operadoras=subentry.data.get(CONF_OPERADORAS) or None,
-            incluir_beta=subentry.data.get(CONF_INCLUIR_BETA, False),
-        )
+    # Mesma tradução de erros dos coordinators: sem isto o HA parkeia a entry
+    # em SETUP_ERROR (não-retentável) em vez de SETUP_RETRY/reauth.
+    try:
+        if subentry.subentry_type == SUBENTRY_MUNICIPIO:
+            dados = await client.async_criar_monitor_cidade(
+                url, [str(subentry.data[CONF_IBGE])], descricao=subentry.title
+            )
+        else:
+            dados = await client.async_criar_monitor_ios(
+                url,
+                subentry.data[CONF_PAISES],
+                operadoras=subentry.data.get(CONF_OPERADORAS) or None,
+                incluir_beta=subentry.data.get(CONF_INCLUIR_BETA, False),
+            )
+    except RMFAuthError as err:
+        raise ConfigEntryAuthFailed(err) from err
+    except RMFError as err:
+        raise ConfigEntryNotReady(f"Falha ao criar monitor: {err}") from err
     # O secret só volta nessa resposta — precisa ser persistido agora.
     hass.config_entries.async_update_subentry(
         entry,
@@ -244,7 +251,7 @@ def _seguir_pessoa(
             return
         if coord.lat is not None:
             dist = distance(coord.lat, coord.lon, float(lat), float(lon))
-            if dist is not None and dist < DISTANCIA_MINIMA_M:
+            if dist is not None and dist <= DISTANCIA_MINIMA_M:
                 return
         ultima["em"] = agora
         for c in (rt.cobertura[sid], rt.erbs[sid]):
