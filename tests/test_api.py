@@ -85,6 +85,35 @@ async def test_criar_e_listar_monitor_ios(client):
         await client.async_remover_monitor("ios", "3ab7f001")
 
 
+async def test_listar_monitores_aceita_envelope_e_lista(client):
+    """A API real devolve `dados` como envelope `{"total", "monitores"}`.
+
+    Sem normalizar, o consumidor itera o dict e recebe as CHAVES (strings) —
+    foi assim que o setup quebrou com "'str' object has no attribute 'get'" na
+    primeira instalação real. Uma lista pura também precisa continuar valendo.
+    """
+    with aioresponses() as m:
+        m.get(
+            f"{BASE_URL}/api/monitorar-ios",
+            payload={"status": "ok", "dados": {"total": 0, "monitores": []}},
+        )
+        assert await client.async_listar_monitores("ios") == []
+
+        m.get(
+            f"{BASE_URL}/api/monitorar-cidade",
+            payload={"status": "ok", "dados": [{"id": "abc", "ativo": True}]},
+        )
+        lista = await client.async_listar_monitores("cidade")
+        assert [mon["id"] for mon in lista] == ["abc"]
+
+        m.get(
+            f"{BASE_URL}/api/monitorar-ios",
+            payload={"status": "ok", "dados": "nada disso"},
+        )
+        with pytest.raises(RMFError):
+            await client.async_listar_monitores("ios")
+
+
 @pytest.mark.parametrize(
     ("status", "exc"),
     [(403, RMFAuthError), (429, RMFRateLimitError), (404, RMFNotFoundError)],

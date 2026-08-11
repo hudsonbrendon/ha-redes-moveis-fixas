@@ -234,7 +234,7 @@ async def test_ultima_novidade_ios(hass, entry_completa, mock_client):
 
     async def _listar(tipo):
         if tipo == "ios":
-            return load_fixture("monitores_ios_lista.json")["dados"]
+            return load_fixture("monitores_ios_lista.json")["dados"]["monitores"]
         return []
 
     mock_client.async_listar_monitores.side_effect = _listar

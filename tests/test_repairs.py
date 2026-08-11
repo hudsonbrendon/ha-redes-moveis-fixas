@@ -32,7 +32,7 @@ def _marcar_monitor_ios(entry, monitor_id="3ab7f001", secret="s"):
 async def test_issue_quando_monitor_inativo(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
-    lista = load_fixture("monitores_ios_lista.json")["dados"]
+    lista = load_fixture("monitores_ios_lista.json")["dados"]["monitores"]
     lista[0]["ativo"] = False
     lista[0]["falhas_seguidas"] = 10
 
@@ -81,7 +81,7 @@ async def test_issue_removida_quando_saudavel(hass, entry_completa, mock_client)
     """Issue de uma queda anterior some assim que o monitor volta a `ativo`."""
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
-    lista = load_fixture("monitores_ios_lista.json")["dados"]
+    lista = load_fixture("monitores_ios_lista.json")["dados"]["monitores"]
     lista[0]["ativo"] = True  # saudável desde o primeiro refresh
 
     def _listar(tipo):
@@ -317,7 +317,7 @@ async def test_fix_flow_recria_monitor(hass, entry_completa, mock_client):
     """
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
-    lista = load_fixture("monitores_ios_lista.json")["dados"]
+    lista = load_fixture("monitores_ios_lista.json")["dados"]["monitores"]
     lista[0]["ativo"] = False
     mock_client.async_listar_monitores.side_effect = lambda tipo: (
         lista if tipo == "ios" else []

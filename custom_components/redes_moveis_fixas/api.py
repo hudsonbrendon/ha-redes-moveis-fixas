@@ -57,6 +57,22 @@ def _dados_monitor(payload: Any) -> dict:
     return dados
 
 
+def _lista_monitores(dados: Any) -> list[dict]:
+    """Normaliza a listagem de monitores para uma lista de dicts.
+
+    A API devolve `dados` como envelope: `{"total": N, "monitores": [...]}`.
+    Iterar o envelope direto rende as CHAVES (strings), e o consumidor quebra
+    com "'str' object has no attribute 'get'" — foi o que derrubou o setup na
+    primeira instalação real. Uma lista pura também é aceita, caso a API volte
+    a devolvê-la.
+    """
+    if isinstance(dados, dict):
+        dados = dados.get("monitores", [])
+    if not isinstance(dados, list):
+        raise RMFError("Listagem de monitores em formato inesperado")
+    return [m for m in dados if isinstance(m, dict)]
+
+
 class RMFClient:
     """Cliente assíncrono da API redesmoveisfixas.com."""
 
@@ -140,7 +156,7 @@ class RMFClient:
 
     async def async_listar_monitores(self, tipo: str) -> list[dict]:
         payload = await self._request("GET", f"/api/monitorar-{_rota(tipo)}")
-        return _dados(payload)
+        return _lista_monitores(_dados(payload))
 
     async def async_criar_monitor_cidade(
         self, url: str, municipios: list[str], descricao: str | None = None

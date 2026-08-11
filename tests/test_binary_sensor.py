@@ -38,7 +38,7 @@ async def test_monitor_ativo_quando_listado(hass, entry_completa, mock_client):
 
     def _listar(tipo):
         if tipo == "ios":
-            return load_fixture("monitores_ios_lista.json")["dados"]
+            return load_fixture("monitores_ios_lista.json")["dados"]["monitores"]
         return []
 
     mock_client.async_listar_monitores.side_effect = _listar

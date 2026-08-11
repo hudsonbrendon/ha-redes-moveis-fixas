@@ -114,7 +114,7 @@ async def test_monitores_agrega_tipos(hass, entry):
     client = AsyncMock()
     client.async_listar_monitores.side_effect = [
         [],  # cidade
-        load_fixture("monitores_ios_lista.json")["dados"],  # ios
+        load_fixture("monitores_ios_lista.json")["dados"]["monitores"],  # ios
     ]
     coord = MonitoresCoordinator(hass, entry, client, timedelta(hours=6))
     dados = await coord._async_update_data()
