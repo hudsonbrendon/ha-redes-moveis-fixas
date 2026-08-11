@@ -6,7 +6,7 @@ import voluptuous as vol
 from homeassistant.components.repairs import RepairsFlow
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_MONITOR_ID, CONF_MONITOR_SECRET, CONF_WEBHOOK_ID
+from .const import CONF_MONITOR_ID, CONF_MONITOR_SECRET
 
 
 class MonitorInativoFlow(RepairsFlow):
@@ -25,9 +25,6 @@ class MonitorInativoFlow(RepairsFlow):
             subentry = entry.subentries[self._data["subentry_id"]]
             client = entry.runtime_data.client
 
-            # import tardio evita ciclo (__init__ importa coordinators/services,
-            # não repairs; repairs precisa do helper de provisionamento do __init__)
-            from . import _provisionar_monitor
             from .api import RMFError
             from .const import SUBENTRY_MUNICIPIO
 
@@ -40,6 +37,16 @@ class MonitorInativoFlow(RepairsFlow):
                     await client.async_remover_monitor(tipo, velho)
                 except RMFError:
                     pass
+            # Só isto: tirar monitor_id/secret dispara o update listener, que
+            # agenda um reload (via hass.async_create_task, não awaited). O
+            # próprio async_setup_entry já reprovisiona sozinho qualquer
+            # subentry sem monitor_id (_provisionar_monitor é idempotente
+            # nisso) — chamá-lo de novo aqui, manualmente, corria em paralelo
+            # com esse reload agendado e podia criar dois monitores pra
+            # mesma subentry. Deixar só o reload provisionar elimina a
+            # corrida: existe exatamente UM lugar que cria monitor (o loop de
+            # subentries do setup), disparado por UM reload agendado por esta
+            # única chamada.
             hass.config_entries.async_update_subentry(
                 entry,
                 subentry,
@@ -48,12 +55,6 @@ class MonitorInativoFlow(RepairsFlow):
                     for k, v in subentry.data.items()
                     if k not in (CONF_MONITOR_ID, CONF_MONITOR_SECRET)
                 },
-            )
-            # _provisionar_monitor espera o webhook_id (não a URL): ele mesmo
-            # resolve a URL via async_generate_url. Passar a URL aqui geraria
-            # um webhook inválido (URL dentro de URL).
-            await _provisionar_monitor(
-                hass, entry, subentry, client, entry.data[CONF_WEBHOOK_ID]
             )
             return self.async_create_entry(data={})
         return self.async_show_form(step_id="confirm", data_schema=vol.Schema({}))

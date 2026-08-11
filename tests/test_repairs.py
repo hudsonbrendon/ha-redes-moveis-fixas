@@ -1,11 +1,19 @@
 """Testes de repairs (monitor inativo) e varredura de órfãos."""
 
-import homeassistant.helpers.issue_registry as ir
+from unittest.mock import patch
 
+import homeassistant.helpers.issue_registry as ir
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
+from homeassistant.helpers.network import NoURLAvailableError
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.redes_moveis_fixas.const import DOMAIN
 from custom_components.redes_moveis_fixas.repairs import MonitorInativoFlow
 
 from .conftest import load_fixture
 from .test_sensor import _setup
+
+WEBHOOK_URL = "https://ha.example.com/api/webhook/wh_fixo"
 
 
 def _sub_ios(entry):
@@ -101,12 +109,92 @@ async def test_issue_removida_quando_saudavel(hass, entry_completa, mock_client)
     assert registry.async_get_issue("redes_moveis_fixas", issue_id) is None
 
 
+async def test_sem_issue_falsa_apos_provisionar_pela_primeira_vez(
+    hass, entry_completa, mock_client
+):
+    """MonitoresCoordinator atualiza ANTES do loop de provisionamento.
+
+    Sem reavaliar depois de criar os monitores, um monitor criado nesta
+    própria passagem de setup pareceria "sumido" pro coordinator (cujo
+    snapshot é de antes da criação) e abriria uma issue falsa logo no
+    primeiro setup — que só sumiria até 6h depois (INTERVALO_MONITORES).
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+
+    criado = {"ios": False, "cidade": False}
+
+    def _criar_ios(*_a, **_kw):
+        criado["ios"] = True
+        return {"id": "3ab7f001", "secret": "whsec_test_1d90aa"}
+
+    def _criar_cidade(*_a, **_kw):
+        criado["cidade"] = True
+        return {"id": "9f1c0001", "secret": "whsec_cidade_aa"}
+
+    mock_client.async_criar_monitor_ios.side_effect = _criar_ios
+    mock_client.async_criar_monitor_cidade.side_effect = _criar_cidade
+
+    def _listar(tipo):
+        base = {
+            "ativo": True,
+            "falhas_seguidas": 0,
+            "ultima_entrega": None,
+            "ultimo_erro": None,
+        }
+        if tipo == "ios" and criado["ios"]:
+            return [{"id": "3ab7f001", "url": WEBHOOK_URL, **base}]
+        if tipo == "cidade" and criado["cidade"]:
+            return [{"id": "9f1c0001", "url": WEBHOOK_URL, **base}]
+        return []
+
+    mock_client.async_listar_monitores.side_effect = _listar
+
+    await _setup(hass, entry_completa, mock_client)
+
+    registry = ir.async_get(hass)
+    for sub in entry_completa.subentries.values():
+        if sub.subentry_type in ("monitor_ios", "municipio"):
+            issue = registry.async_get_issue(
+                "redes_moveis_fixas", f"monitor_inativo_{sub.subentry_id}"
+            )
+            assert issue is None, f"issue falsa em {sub.subentry_type}: {issue}"
+
+
+async def test_issue_de_subentry_removida_e_limpa(hass, entry_completa, mock_client):
+    """Remover uma subentry não tem hook próprio no HA (nota do design doc).
+
+    Uma issue `monitor_inativo_{subentry_id}` cuja subentry já não existe
+    mais tem que ser varrida no próximo setup, não vazar pra sempre.
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+
+    registry = ir.async_get(hass)
+    issue_id = "monitor_inativo_subentry-que-nao-existe-mais"
+    ir.async_create_issue(
+        hass,
+        "redes_moveis_fixas",
+        issue_id,
+        is_fixable=True,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="monitor_inativo",
+        data={
+            "entry_id": entry_completa.entry_id,
+            "subentry_id": "subentry-que-nao-existe-mais",
+        },
+    )
+    assert registry.async_get_issue("redes_moveis_fixas", issue_id) is not None
+
+    await _setup(hass, entry_completa, mock_client)
+
+    assert registry.async_get_issue("redes_moveis_fixas", issue_id) is None
+
+
 async def test_orfao_removido(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
     orfao = {
         "id": "deadbeef",
-        "url": "https://ha.example.com/api/webhook/wh_fixo",
+        "url": WEBHOOK_URL,
         "ativo": True,
         "falhas_seguidas": 0,
         "ultima_entrega": None,
@@ -123,17 +211,19 @@ async def test_orfao_removido(hass, entry_completa, mock_client):
 
 
 async def test_orfao_url_diferente_nao_removido(hass, entry_completa, mock_client):
-    """Guarda de segurança: monitor de OUTRA instalação/entry nunca é apagado.
+    """Guarda de segurança: monitor de OUTRO webhook nunca é apagado.
 
-    Mesmo sem dono (id não reivindicado por nenhuma subentry desta entry), um
-    monitor cuja `url` não é a nossa não pode ser tocado — senão a varredura
-    de órfãos vira uma arma de apagar monitor alheio.
+    Mesmo hostname que o nosso (`ha.example.com`) e mesmo formato de URL —
+    só o segmento do webhook id no fim muda (`wh_outro` vs. `wh_fixo`). Isso
+    só passa se a comparação for igualdade exata de string; um match por
+    prefixo/hostname (em vez da URL inteira) deixaria passar isto e apagaria
+    monitor de outra entry/instalação que só compartilhe o domínio.
     """
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
-    de_outra_instalacao = {
+    de_outro_webhook = {
         "id": "outroha0",
-        "url": "https://outra-instalacao.example.com/api/webhook/xyz",
+        "url": "https://ha.example.com/api/webhook/wh_outro",
         "ativo": True,
         "falhas_seguidas": 0,
         "ultima_entrega": None,
@@ -141,7 +231,7 @@ async def test_orfao_url_diferente_nao_removido(hass, entry_completa, mock_clien
     }
 
     def _listar(tipo):
-        return [de_outra_instalacao] if tipo == "cidade" else []
+        return [de_outro_webhook] if tipo == "cidade" else []
 
     mock_client.async_listar_monitores.side_effect = _listar
     await _setup(hass, entry_completa, mock_client)
@@ -149,13 +239,81 @@ async def test_orfao_url_diferente_nao_removido(hass, entry_completa, mock_clien
     mock_client.async_remover_monitor.assert_not_awaited()
 
 
-async def test_fix_flow_recria_monitor(hass, entry_completa, mock_client):
-    """Confirm step: apaga o monitor morto e cria um novo, id/secret novos.
+async def test_orfao_sem_id_nao_derruba_setup(hass, entry_completa, mock_client):
+    """Registro sem `id` na listagem: pulado, não estoura KeyError no setup."""
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
-    A subentry entra com o monitor "3ab7f001" (marcado inativo). O flow deve
-    chamar DELETE no velho, POST num novo, e persistir o id/secret novos —
-    numa única passagem, sem deixar a subentry num intervalo sem nenhum dos
-    dois (ver análise de "estado pela metade" no relatório).
+    sem_id = {
+        "url": WEBHOOK_URL,
+        "ativo": True,
+        "falhas_seguidas": 0,
+        "ultima_entrega": None,
+        "ultimo_erro": None,
+    }
+
+    def _listar(tipo):
+        return [sem_id] if tipo == "cidade" else []
+
+    mock_client.async_listar_monitores.side_effect = _listar
+    await _setup(hass, entry_completa, mock_client)  # não pode levantar KeyError
+
+    mock_client.async_remover_monitor.assert_not_awaited()
+
+
+async def test_sem_url_e_sem_provisionar_carrega(hass, mock_client):
+    """Regressão do Task 7: sem external_url mas sem NADA pra provisionar,
+    a entry precisa carregar mesmo assim — a varredura de órfãos precisa de
+    URL só pra si mesma; ela não pode travar o setup inteiro por isso (Task
+    7 já tinha corrigido exatamente essa laziness pro provisionamento).
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    e = MockConfigEntry(
+        domain=DOMAIN,
+        data={"token": "tok", "webhook_id": "wh_fixo"},
+        unique_id="uid_sem_url",
+        subentries_data=[
+            ConfigSubentryData(
+                data={
+                    "modo": "zona",
+                    "entity_id": "zone.home",
+                    "intervalo_cobertura": 30,
+                    "intervalo_erbs": 6,
+                    "max_geo": 25,
+                },
+                subentry_type="local",
+                title="Casa",
+                unique_id=None,
+            ),
+        ],
+    )
+    e.add_to_hass(hass)
+    with (
+        patch(
+            "custom_components.redes_moveis_fixas.RMFClient",
+            return_value=mock_client,
+        ),
+        patch(
+            "custom_components.redes_moveis_fixas.webhook_async_generate_url",
+            side_effect=NoURLAvailableError,
+        ),
+    ):
+        assert await hass.config_entries.async_setup(e.entry_id)
+        await hass.async_block_till_done()
+    assert e.state is ConfigEntryState.LOADED
+    # só as 2 chamadas do MonitoresCoordinator (cidade+ios); a varredura de
+    # órfãos foi pulada (sem URL), então não soma outras 2 por cima.
+    assert mock_client.async_listar_monitores.await_count == 2
+
+
+async def test_fix_flow_recria_monitor(hass, entry_completa, mock_client):
+    """Confirm step: apaga o monitor morto; o reload agendado recria.
+
+    A subentry entra com o monitor "3ab7f001" (marcado inativo). O flow só
+    faz DELETE no velho e tira monitor_id/secret da subentry — isso agenda
+    um reload (update listener), e é o próprio `async_setup_entry` desse
+    reload que reprovisiona (idempotente: cria só porque não tem
+    monitor_id). Ver relatório pra análise de por que isto não cria dois
+    monitores em paralelo.
     """
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
 
@@ -170,20 +328,37 @@ async def test_fix_flow_recria_monitor(hass, entry_completa, mock_client):
         "secret": "whsec_novo",
     }
 
-    await _setup(hass, entry_completa, mock_client)
-    mock_client.async_criar_monitor_ios.reset_mock()
+    # Patches ficam de pé durante TODO o teste (não só o `_setup` inicial):
+    # o reload disparado pelo flow também passa por RMFClient/webhook_url.
+    with (
+        patch(
+            "custom_components.redes_moveis_fixas.RMFClient",
+            return_value=mock_client,
+        ),
+        patch(
+            "custom_components.redes_moveis_fixas.webhook_async_generate_url",
+            return_value=WEBHOOK_URL,
+        ),
+    ):
+        assert await hass.config_entries.async_setup(entry_completa.entry_id)
+        await hass.async_block_till_done()
 
-    sub_ios = _sub_ios(entry_completa)
-    flow = MonitorInativoFlow(
-        {"entry_id": entry_completa.entry_id, "subentry_id": sub_ios.subentry_id}
-    )
-    flow.hass = hass
-    result = await flow.async_step_confirm({})
+        mock_client.async_criar_monitor_ios.reset_mock()
 
-    assert result["type"] == "create_entry"
-    mock_client.async_remover_monitor.assert_any_await("ios", "3ab7f001")
+        sub_ios = _sub_ios(entry_completa)
+        flow = MonitorInativoFlow(
+            {"entry_id": entry_completa.entry_id, "subentry_id": sub_ios.subentry_id}
+        )
+        flow.hass = hass
+        result = await flow.async_step_confirm({})
+        assert result["type"] == "create_entry"
+
+        mock_client.async_remover_monitor.assert_any_await("ios", "3ab7f001")
+
+        # a recriação em si só acontece no reload agendado pelo strip-write
+        await hass.async_block_till_done()
+
     mock_client.async_criar_monitor_ios.assert_awaited_once()
-
     sub_ios = _sub_ios(entry_completa)
     assert sub_ios.data["monitor_id"] == "novoid02"
     assert sub_ios.data["monitor_secret"] == "whsec_novo"

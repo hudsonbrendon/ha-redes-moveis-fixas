@@ -110,5 +110,8 @@ class MonitoresCoordinator(RMFCoordinator):
         monitores: dict[str, dict] = {}
         for tipo in ("cidade", "ios"):
             for mon in await self.client.async_listar_monitores(tipo):
-                monitores[mon["id"]] = {**mon, "tipo": tipo}
+                mon_id = mon.get("id")
+                if mon_id is None:
+                    continue
+                monitores[mon_id] = {**mon, "tipo": tipo}
         return monitores

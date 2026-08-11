@@ -102,10 +102,14 @@ async def _provisionar_monitor(
     subentry: ConfigSubentry,
     client: RMFClient,
     webhook_id: str,
-) -> None:
-    """Cria o monitor na API se a subentry ainda não tem um."""
+) -> bool:
+    """Cria o monitor na API se a subentry ainda não tem um.
+
+    Retorna True se criou um monitor novo agora (usado pelo setup pra saber
+    se precisa refrescar o MonitoresCoordinator antes de avaliar as issues).
+    """
     if subentry.data.get(CONF_MONITOR_ID):
-        return
+        return False
     url = _url_webhook(hass, webhook_id)
     # Mesma tradução de erros dos coordinators: sem isto o HA parkeia a entry
     # em SETUP_ERROR (não-retentável) em vez de SETUP_RETRY/reauth.
@@ -135,6 +139,10 @@ async def _provisionar_monitor(
             CONF_MONITOR_SECRET: dados["secret"],
         },
     )
+    return True
+
+
+_PREFIXO_ISSUE_MONITOR = "monitor_inativo_"
 
 
 def _checar_monitores(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -146,12 +154,14 @@ def _checar_monitores(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     rt: RMFRuntime = entry.runtime_data
     dados = rt.monitores.data or {}
+    vivas = set()
     for subentry in entry.subentries.values():
         monitor_id = subentry.data.get(CONF_MONITOR_ID)
         if not monitor_id:
             continue
+        vivas.add(subentry.subentry_id)
         mon = dados.get(monitor_id)
-        issue_id = f"monitor_inativo_{subentry.subentry_id}"
+        issue_id = f"{_PREFIXO_ISSUE_MONITOR}{subentry.subentry_id}"
         if mon is None or not mon.get("ativo"):
             ir.async_create_issue(
                 hass,
@@ -164,6 +174,20 @@ def _checar_monitores(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 data={"entry_id": entry.entry_id, "subentry_id": subentry.subentry_id},
             )
         else:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+
+    # Subentry removida não tem hook de remoção no HA (mesma limitação que
+    # motiva _remover_orfaos): sem isto, a issue de uma subentry apagada
+    # ficaria aberta pra sempre. Varre o registry só pelas issues DESTA
+    # entry (via issue.data["entry_id"]) — nunca mexe nas de outra entry.
+    registry = ir.async_get(hass)
+    for (domain, issue_id), issue in list(registry.issues.items()):
+        if domain != DOMAIN or not issue_id.startswith(_PREFIXO_ISSUE_MONITOR):
+            continue
+        if (issue.data or {}).get("entry_id") != entry.entry_id:
+            continue
+        sid = issue_id[len(_PREFIXO_ISSUE_MONITOR) :]
+        if sid not in vivas:
             ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
@@ -189,12 +213,15 @@ async def _remover_orfaos(
         except RMFError:
             continue
         for mon in lista:
-            if mon.get("url") == url_webhook and mon["id"] not in nossos:
+            mon_id = mon.get("id")
+            if mon_id is None:
+                continue
+            if mon.get("url") == url_webhook and mon_id not in nossos:
                 try:
-                    await client.async_remover_monitor(tipo, mon["id"])
-                    _LOGGER.info("Monitor órfão %s removido", mon["id"])
+                    await client.async_remover_monitor(tipo, mon_id)
+                    _LOGGER.info("Monitor órfão %s removido", mon_id)
                 except RMFError as err:
-                    _LOGGER.warning("Falha ao remover órfão %s: %s", mon["id"], err)
+                    _LOGGER.warning("Falha ao remover órfão %s: %s", mon_id, err)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -230,6 +257,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     rt = RMFRuntime(client=client, health=health, monitores=monitores)
     entry.runtime_data = rt
 
+    provisionou = False
     for subentry in entry.subentries.values():
         sid = subentry.subentry_id
         if subentry.subentry_type == SUBENTRY_LOCAL:
@@ -279,12 +307,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             await rt.municipio[sid].async_config_entry_first_refresh()
             if subentry.data.get(CONF_MONITORAR):
-                await _provisionar_monitor(hass, entry, subentry, client, webhook_id)
+                provisionou |= await _provisionar_monitor(
+                    hass, entry, subentry, client, webhook_id
+                )
         elif subentry.subentry_type == SUBENTRY_MONITOR_IOS:
-            await _provisionar_monitor(hass, entry, subentry, client, webhook_id)
+            provisionou |= await _provisionar_monitor(
+                hass, entry, subentry, client, webhook_id
+            )
 
-    url_webhook = _url_webhook(hass, webhook_id)
-    await _remover_orfaos(hass, entry, client, url_webhook)
+    if provisionou:
+        # Monitor(es) criado(s) nesta própria passagem: o snapshot do
+        # coordinator é de ANTES da criação (refresh roda lá em cima, antes
+        # do loop). Sem isto, _checar_monitores acharia "sumiu" e abriria
+        # uma issue falsa no primeiro setup — refresca antes de avaliar.
+        await rt.monitores.async_refresh()
+
+    # A varredura de órfãos é um bônus best-effort: se não dá pra resolver a
+    # URL pública (sem external_url/cloud), pula e deixa o setup continuar —
+    # travar o setup inteiro por causa disso já foi Critical no Task 7 pra
+    # provisionamento; não pode voltar aqui.
+    try:
+        url_webhook = webhook_async_generate_url(hass, webhook_id)
+    except NoURLAvailableError:
+        _LOGGER.debug("Sem URL externa: varredura de órfãos pulada neste setup")
+    else:
+        await _remover_orfaos(hass, entry, client, url_webhook)
     _checar_monitores(hass, entry)
     entry.async_on_unload(
         rt.monitores.async_add_listener(lambda: _checar_monitores(hass, entry))
