@@ -59,6 +59,8 @@ class StatusApiBinarySensor(RMFEntryEntity, BinarySensorEntity):
 
 
 class Disponivel5GBinarySensor(RMFEntity, BinarySensorEntity):
+    _attr_icon = "mdi:signal-5g"
+
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(coordinator, subentry, "5g", "5G disponível")
 
@@ -72,6 +74,8 @@ class Disponivel5GBinarySensor(RMFEntity, BinarySensorEntity):
 
 
 class MonitorAtivoBinarySensor(RMFEntity, BinarySensorEntity):
+    _attr_icon = "mdi:webhook"
+
     def __init__(self, coordinator, subentry, nome: str) -> None:
         super().__init__(coordinator, subentry, "monitor_ativo", nome)
         self._monitor_id = subentry.data.get(CONF_MONITOR_ID)

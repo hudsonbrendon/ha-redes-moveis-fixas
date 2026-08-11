@@ -96,6 +96,20 @@ Via [HACS](https://hacs.xyz/) como repositório customizado:
 > `state_class: measurement`, não `total` — são totais correntes lidos a cada
 > atualização, não um acumulador incremental.
 
+## Ícones e marca
+
+Cada entidade tem um ícone MDI (`mdi:signal`, `mdi:radio-tower`, `mdi:apple`
+etc.) definido em `_attr_icon` — esses funcionam independentemente de
+qualquer outra coisa, já instalados.
+
+A pasta `custom_components/redes_moveis_fixas/brand/` guarda `icon.png`,
+`icon@2x.png`, `logo.png` e `logo@2x.png` (mais os SVGs de origem) no layout
+que o repositório [home-assistant/brands](https://github.com/home-assistant/brands)
+exige. Até que um PR levando esses arquivos para lá seja aceito, o Home
+Assistant mostra o ícone genérico de quebra-cabeça para a integração em si
+(na tela de integrações, não nas entidades) — os ícones de entidade acima já
+funcionam hoje, sem depender disso.
+
 ## Actions
 
 Todas retornam dados (`supports_response: only` — chame com "usar resposta"/

@@ -32,6 +32,7 @@ async def test_event_ios(hass, entry_completa, mock_client):
     assert estado.attributes["operadora"] == "TIM"
     assert estado.attributes["pais"] == "BR"
     assert estado.attributes["bundle"] == {"from": "70.0", "to": "70.1"}
+    assert estado.attributes["icon"] == "mdi:apple"
 
 
 async def test_event_cidade(hass, entry_completa, mock_client):
@@ -64,6 +65,7 @@ async def test_event_cidade(hass, entry_completa, mock_client):
     estado = hass.states.get(entity_id)
     assert estado.attributes["event_type"] == "upgrade_tecnologia"
     assert estado.attributes["operadora"] == "TIM"
+    assert estado.attributes["icon"] == "mdi:radio-tower"
 
 
 async def test_event_cidade_nova_erb(hass, entry_completa, mock_client):

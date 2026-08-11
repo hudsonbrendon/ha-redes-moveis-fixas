@@ -232,6 +232,40 @@ async def test_timestamp_sem_timezone_nao_quebra(hass, entry_completa, mock_clie
     assert state.state != "unknown"
 
 
+async def test_icones_dos_sensores(hass, entry_completa, mock_client):
+    """Pina o mapeamento de `_attr_icon` — sem isto a regressão é invisível
+    em runtime (nenhum teste falha, só o ícone genérico volta a aparecer)."""
+
+    async def _listar(tipo):
+        if tipo == "ios":
+            return load_fixture("monitores_ios_lista.json")["dados"]["monitores"]
+        return []
+
+    mock_client.async_listar_monitores.side_effect = _listar
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+
+    esperado = {
+        "sensor.casa_cobertura_da_vivo": "mdi:signal",
+        "sensor.casa_melhor_cobertura": "mdi:crown-outline",
+        "sensor.casa_erbs_por_perto": "mdi:radio-tower",
+        "sensor.casa_distancia_da_erb_mais_proxima": "mdi:map-marker-distance",
+        "sensor.api_rmf_base_de_cobertura_atualizada_em": "mdi:database-clock-outline",
+        "sensor.sao_paulo_sp_base_atualizada_em": "mdi:database-clock-outline",
+        # TotalSensor: ícone depende do campo passado ao construtor
+        "sensor.sao_paulo_sp_erbs": "mdi:radio-tower",
+        "sensor.sao_paulo_sp_estacoes": "mdi:antenna",
+        # ErbsTecnologiaSensor: ícone por tecnologia
+        "sensor.sao_paulo_sp_erbs_5g": "mdi:signal-5g",
+        "sensor.sao_paulo_sp_erbs_4g": "mdi:signal-4g",
+        "sensor.monitor_ios_ultima_novidade": "mdi:apple",
+    }
+    for entity_id, icone in esperado.items():
+        state = hass.states.get(entity_id)
+        assert state is not None, entity_id
+        assert state.attributes.get("icon") == icone, entity_id
+
+
 async def test_ultima_novidade_ios(hass, entry_completa, mock_client):
     """mock_client.async_listar_monitores devolve [] por padrão; sobrescrito só aqui."""
 

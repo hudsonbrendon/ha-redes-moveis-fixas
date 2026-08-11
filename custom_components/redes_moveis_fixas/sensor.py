@@ -24,6 +24,17 @@ from .entity import RMFEntity, RMFEntryEntity
 
 TECNOLOGIAS = ("2G", "3G", "4G", "5G")
 
+_ICONE_POR_TECNOLOGIA = {
+    "2G": "mdi:signal-2g",
+    "3G": "mdi:signal-3g",
+    "4G": "mdi:signal-4g",
+    "5G": "mdi:signal-5g",
+}
+_ICONE_POR_CAMPO_TOTAL = {
+    "erbs_celular": "mdi:radio-tower",
+    "estacoes": "mdi:antenna",
+}
+
 
 def _parse_timestamp(valor: str | None) -> datetime | None:
     """Converte string ISO em datetime aware (UTC se vier sem offset).
@@ -82,6 +93,7 @@ async def async_setup_entry(
 
 class BaseAtualizadaEntrySensor(RMFEntryEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:database-clock-outline"
 
     def __init__(self, coordinator, entry, dependencia: str) -> None:
         super().__init__(
@@ -103,6 +115,7 @@ class BaseAtualizadaEntrySensor(RMFEntryEntity, SensorEntity):
 class CoberturaOperadoraSensor(RMFEntity, SensorEntity):
     _attr_native_unit_of_measurement = "%"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:signal"
 
     def __init__(self, coordinator, subentry, provedor: str) -> None:
         super().__init__(
@@ -140,6 +153,8 @@ class CoberturaOperadoraSensor(RMFEntity, SensorEntity):
 
 
 class MelhorCoberturaSensor(RMFEntity, SensorEntity):
+    _attr_icon = "mdi:crown-outline"
+
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(coordinator, subentry, "melhor", "Melhor cobertura")
 
@@ -158,6 +173,7 @@ class MelhorCoberturaSensor(RMFEntity, SensorEntity):
 
 class ErbsPorPertoSensor(RMFEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:radio-tower"
 
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(coordinator, subentry, "erbs_total", "ERBs por perto")
@@ -186,6 +202,7 @@ class DistanciaErbSensor(RMFEntity, SensorEntity):
     _attr_native_unit_of_measurement = "km"
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:map-marker-distance"
 
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(
@@ -227,6 +244,7 @@ class TotalSensor(RMFEntity, SensorEntity):
     def __init__(self, coordinator, subentry, campo: str, rotulo: str) -> None:
         super().__init__(coordinator, subentry, campo, rotulo)
         self._campo = campo
+        self._attr_icon = _ICONE_POR_CAMPO_TOTAL.get(campo)
 
     @property
     def native_value(self):
@@ -244,6 +262,7 @@ class ErbsTecnologiaSensor(RMFEntity, SensorEntity):
             f"ERBs {tec}",
         )
         self._tec = tec
+        self._attr_icon = _ICONE_POR_TECNOLOGIA.get(tec)
 
     @property
     def native_value(self):
@@ -262,6 +281,7 @@ class ErbsTecnologiaSensor(RMFEntity, SensorEntity):
 
 class BaseMunicipioSensor(RMFEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:database-clock-outline"
 
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(
@@ -278,6 +298,7 @@ class BaseMunicipioSensor(RMFEntity, SensorEntity):
 
 class UltimaNovidadeIosSensor(RMFEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:apple"
 
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(coordinator, subentry, "ultima_novidade", "Última novidade")

@@ -25,10 +25,17 @@ async def test_binary_sensors(hass, entry_completa, mock_client):
     status = hass.states.get("binary_sensor.api_rmf_status")
     assert status.state == "on"
     assert status.attributes["device_class"] == BinarySensorDeviceClass.CONNECTIVITY
+    # connectivity tem ícone padrão que acompanha o estado; não sobrescrevemos
+    assert "icon" not in status.attributes
 
-    assert hass.states.get("binary_sensor.casa_5g_disponivel").state == "on"
+    cinco_g = hass.states.get("binary_sensor.casa_5g_disponivel")
+    assert cinco_g.state == "on"
+    assert cinco_g.attributes["icon"] == "mdi:signal-5g"
+
     # monitor recém-criado ainda não aparece na listagem mockada (vazia) → off
-    assert hass.states.get("binary_sensor.monitor_ios_monitor_ativo").state == "off"
+    monitor_ios = hass.states.get("binary_sensor.monitor_ios_monitor_ativo")
+    assert monitor_ios.state == "off"
+    assert monitor_ios.attributes["icon"] == "mdi:webhook"
     # idem pro monitor do município
     assert hass.states.get("binary_sensor.sao_paulo_sp_monitor_ativo").state == "off"
 

@@ -63,6 +63,7 @@ class NovasTorresEvent(RMFEventBase):
     """Uma nova ERB ou upgrade de tecnologia no município monitorado."""
 
     _attr_event_types = ["nova_erb", "upgrade_tecnologia"]
+    _attr_icon = "mdi:radio-tower"
 
     def __init__(self, coordinator, subentry: ConfigSubentry) -> None:
         super().__init__(
@@ -102,6 +103,7 @@ class NovidadesIosEvent(RMFEventBase):
     """Bundle de operadora Apple novo, alterado ou removido."""
 
     _attr_event_types = ["nova", "alterada", "removida"]
+    _attr_icon = "mdi:apple"
 
     def __init__(self, coordinator, subentry: ConfigSubentry) -> None:
         super().__init__(coordinator, subentry, "novidades_ios", "Novidades")
