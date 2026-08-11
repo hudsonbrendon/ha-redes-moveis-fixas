@@ -152,6 +152,44 @@ async def test_consultar_cobertura_entity_so_com_longitude(
         )
 
 
+async def test_consultar_cobertura_entity_so_com_latitude(
+    hass, entry_completa, mock_client
+):
+    """Regressão: latitude sem longitude não pode estourar KeyError cru."""
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    hass.states.async_set("zone.so_lat", "0", {"latitude": -5.8})
+    await _setup(hass, entry_completa, mock_client)
+
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "redes_moveis_fixas",
+            "consultar_cobertura",
+            {"entity_id": "zone.so_lat"},
+            blocking=True,
+            return_response=True,
+        )
+
+
+async def test_consultar_cobertura_entity_tem_precedencia_sobre_coords(
+    hass, entry_completa, mock_client
+):
+    """Quando ambos são informados, entity_id vence (comportamento fixado)."""
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    hass.states.async_set(
+        "zone.outra", "0", {"latitude": -23.5, "longitude": -46.6}
+    )
+    await _setup(hass, entry_completa, mock_client)
+
+    await hass.services.async_call(
+        "redes_moveis_fixas",
+        "consultar_cobertura",
+        {"entity_id": "zone.outra", "latitude": -5.8, "longitude": -35.2},
+        blocking=True,
+        return_response=True,
+    )
+    mock_client.async_cobertura.assert_awaited_with(-23.5, -46.6)
+
+
 async def test_consultar_cobertura_sem_coords_nem_entity(
     hass, entry_completa, mock_client
 ):
@@ -181,6 +219,59 @@ async def test_rmferror_vira_homeassistanterror(hass, entry_completa, mock_clien
             blocking=True,
             return_response=True,
         )
+
+
+async def test_buscar_estacoes_rmferror_vira_homeassistanterror(
+    hass, entry_completa, mock_client
+):
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+    mock_client.async_estacoes.side_effect = RMFError("falha na API")
+
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "redes_moveis_fixas",
+            "buscar_estacoes",
+            {"latitude": -5.8, "longitude": -35.2},
+            blocking=True,
+            return_response=True,
+        )
+
+
+async def test_resumo_do_municipio_rmferror_vira_homeassistanterror(
+    hass, entry_completa, mock_client
+):
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+    mock_client.async_resumo_municipio.side_effect = RMFError("falha na API")
+
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "redes_moveis_fixas",
+            "resumo_do_municipio",
+            {"codigo_ibge": 3550308},
+            blocking=True,
+            return_response=True,
+        )
+
+
+async def test_buscar_estacoes_usa_limite_default_quando_omitido(
+    hass, entry_completa, mock_client
+):
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+    mock_client.async_estacoes.reset_mock()
+
+    await hass.services.async_call(
+        "redes_moveis_fixas",
+        "buscar_estacoes",
+        {"latitude": -5.8, "longitude": -35.2},
+        blocking=True,
+        return_response=True,
+    )
+    mock_client.async_estacoes.assert_awaited_once_with(
+        -5.8, -35.2, operadora=None, tecnologia=None, banda=None, limite=200
+    )
 
 
 async def test_sem_entry_carregada_erra_limpo(hass, entry_completa, mock_client):

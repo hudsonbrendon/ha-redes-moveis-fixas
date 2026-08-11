@@ -15,10 +15,14 @@ from homeassistant.helpers import config_validation as cv
 from .api import RMFClient, RMFError
 from .const import DOMAIN
 
+# Bounding box aproximado do Brasil, mesmo limite do services.yaml.
+_LAT = vol.All(vol.Coerce(float), vol.Range(min=-35, max=6))
+_LON = vol.All(vol.Coerce(float), vol.Range(min=-75, max=-28))
+
 SCHEMA_COBERTURA = vol.Schema(
     {
-        vol.Optional("latitude"): vol.Coerce(float),
-        vol.Optional("longitude"): vol.Coerce(float),
+        vol.Optional("latitude"): _LAT,
+        vol.Optional("longitude"): _LON,
         vol.Optional("entity_id"): cv.entity_id,
     }
 )
@@ -32,7 +36,13 @@ SCHEMA_ESTACOES = SCHEMA_COBERTURA.extend(
     }
 )
 
-SCHEMA_RESUMO = vol.Schema({vol.Required("codigo_ibge"): vol.Coerce(int)})
+SCHEMA_RESUMO = vol.Schema(
+    {
+        vol.Required("codigo_ibge"): vol.All(
+            vol.Coerce(int), vol.Range(min=1100015, max=5300108)
+        )
+    }
+)
 
 
 def _client(hass: HomeAssistant) -> RMFClient:
@@ -42,11 +52,15 @@ def _client(hass: HomeAssistant) -> RMFClient:
 
 
 def _coords(hass: HomeAssistant, call: ServiceCall) -> tuple[float, float]:
+    # entity_id tem precedência sobre latitude/longitude explícitas quando
+    # ambos são informados (ver services.yaml).
     if "entity_id" in call.data:
         state = hass.states.get(call.data["entity_id"])
-        if state is None or state.attributes.get("latitude") is None:
+        lat = state.attributes.get("latitude") if state else None
+        lon = state.attributes.get("longitude") if state else None
+        if lat is None or lon is None:
             raise HomeAssistantError(f"{call.data.get('entity_id')} sem coordenadas")
-        return state.attributes["latitude"], state.attributes["longitude"]
+        return lat, lon
     if "latitude" not in call.data or "longitude" not in call.data:
         raise HomeAssistantError("Informe latitude/longitude ou entity_id")
     return call.data["latitude"], call.data["longitude"]

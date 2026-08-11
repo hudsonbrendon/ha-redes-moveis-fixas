@@ -15,6 +15,9 @@ consultar_cobertura:
           max: -28
           step: any
     entity_id:
+      description: >-
+        Zona ou pessoa da qual ler latitude/longitude. Se informado, tem
+        precedência sobre os campos latitude/longitude explícitos.
       selector:
         entity:
           filter:
@@ -35,6 +38,9 @@ buscar_estacoes:
           max: -28
           step: any
     entity_id:
+      description: >-
+        Zona ou pessoa da qual ler latitude/longitude. Se informado, tem
+        precedência sobre os campos latitude/longitude explícitos.
       selector:
         entity:
           filter:
