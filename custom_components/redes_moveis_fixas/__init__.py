@@ -15,7 +15,7 @@ from homeassistant.components.webhook import (
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers import aiohttp_client, issue_registry as ir
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.network import NoURLAvailableError
 from homeassistant.util import dt as dt_util
@@ -137,6 +137,66 @@ async def _provisionar_monitor(
     )
 
 
+def _checar_monitores(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Cria/fecha issues conforme o estado dos monitores.
+
+    Roda no setup e a cada refresh do MonitoresCoordinator (listener abaixo),
+    então uma issue criada quando o monitor cai é fechada sozinha assim que
+    ele volta a aparecer `ativo` na listagem.
+    """
+    rt: RMFRuntime = entry.runtime_data
+    dados = rt.monitores.data or {}
+    for subentry in entry.subentries.values():
+        monitor_id = subentry.data.get(CONF_MONITOR_ID)
+        if not monitor_id:
+            continue
+        mon = dados.get(monitor_id)
+        issue_id = f"monitor_inativo_{subentry.subentry_id}"
+        if mon is None or not mon.get("ativo"):
+            ir.async_create_issue(
+                hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="monitor_inativo",
+                translation_placeholders={"nome": subentry.title},
+                data={"entry_id": entry.entry_id, "subentry_id": subentry.subentry_id},
+            )
+        else:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+
+
+async def _remover_orfaos(
+    hass: HomeAssistant, entry: ConfigEntry, client: RMFClient, url_webhook: str
+) -> None:
+    """Apaga monitores da API que apontam pro nosso webhook mas não têm subentry.
+
+    Proteção: só mexe num monitor se as DUAS condições baterem — `url` é
+    exatamente a URL do nosso webhook (outra instalação HA, ou outra entry
+    com webhook_id diferente, nunca bate) E o id não está reivindicado por
+    nenhuma subentry desta entry (`nossos`). Cobre a remoção de subentry, que
+    não tem hook próprio no HA.
+    """
+    nossos = {
+        s.data.get(CONF_MONITOR_ID)
+        for s in entry.subentries.values()
+        if s.data.get(CONF_MONITOR_ID)
+    }
+    for tipo in ("cidade", "ios"):
+        try:
+            lista = await client.async_listar_monitores(tipo)
+        except RMFError:
+            continue
+        for mon in lista:
+            if mon.get("url") == url_webhook and mon["id"] not in nossos:
+                try:
+                    await client.async_remover_monitor(tipo, mon["id"])
+                    _LOGGER.info("Monitor órfão %s removido", mon["id"])
+                except RMFError as err:
+                    _LOGGER.warning("Falha ao remover órfão %s: %s", mon["id"], err)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Configura a entry hub."""
     client = RMFClient(
@@ -222,6 +282,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await _provisionar_monitor(hass, entry, subentry, client, webhook_id)
         elif subentry.subentry_type == SUBENTRY_MONITOR_IOS:
             await _provisionar_monitor(hass, entry, subentry, client, webhook_id)
+
+    url_webhook = _url_webhook(hass, webhook_id)
+    await _remover_orfaos(hass, entry, client, url_webhook)
+    _checar_monitores(hass, entry)
+    entry.async_on_unload(
+        rt.monitores.async_add_listener(lambda: _checar_monitores(hass, entry))
+    )
 
     async_setup_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
