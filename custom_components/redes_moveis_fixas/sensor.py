@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -16,6 +18,20 @@ from .const import SUBENTRY_LOCAL, SUBENTRY_MONITOR_IOS, SUBENTRY_MUNICIPIO
 from .entity import RMFEntity, RMFEntryEntity
 
 TECNOLOGIAS = ("2G", "3G", "4G", "5G")
+
+
+def _parse_timestamp(valor: str | None) -> datetime | None:
+    """Converte string ISO em datetime aware (UTC se vier sem offset).
+
+    HA exige tz-aware pra sensores TIMESTAMP; sem isto, um valor sem offset
+    passa aqui mas explode depois, no `state` property.
+    """
+    if not valor:
+        return None
+    dt = dt_util.parse_datetime(valor)
+    if dt is None:
+        return None
+    return dt_util.as_utc(dt) if dt.tzinfo is None else dt
 
 
 async def async_setup_entry(
@@ -37,7 +53,9 @@ async def async_setup_entry(
         if subentry.subentry_type == SUBENTRY_LOCAL:
             cob = rt.cobertura[sid]
             provedores = [
-                c["provedor"] for c in (cob.data or {}).get("cobertura", [])
+                p
+                for c in (cob.data or {}).get("cobertura", [])
+                if (p := c.get("provedor")) is not None
             ]
             entities += [
                 CoberturaOperadoraSensor(cob, subentry, p) for p in provedores
@@ -74,8 +92,8 @@ class BaseAtualizadaEntrySensor(RMFEntryEntity, SensorEntity):
     @property
     def native_value(self):
         for dep in (self.coordinator.data or {}).get("dependencias", []):
-            if dep["nome"] == self._dependencia and dep.get("atualizado_em"):
-                return dt_util.parse_datetime(dep["atualizado_em"])
+            if dep.get("nome") == self._dependencia:
+                return _parse_timestamp(dep.get("atualizado_em"))
         return None
 
 
@@ -94,23 +112,27 @@ class CoberturaOperadoraSensor(RMFEntity, SensorEntity):
 
     def _item(self) -> dict | None:
         for c in (self.coordinator.data or {}).get("cobertura", []):
-            if c["provedor"] == self._provedor:
+            if c.get("provedor") == self._provedor:
                 return c
         return None
 
     @property
     def native_value(self):
         item = self._item()
-        return item["qualidade_global"]["score_percentual"] if item else None
+        if not item:
+            return None
+        return item.get("qualidade_global", {}).get("score_percentual")
 
     @property
     def extra_state_attributes(self):
         item = self._item()
         if not item:
             return {}
-        attrs = {"classificacao": item["qualidade_global"]["classificacao"]}
+        attrs = {"classificacao": item.get("qualidade_global", {}).get("classificacao")}
         for tec in item.get("tecnologias_suportadas", []):
-            attrs[tec["rede"]] = tec["forca_sinal"]
+            rede = tec.get("rede")
+            if rede is not None:
+                attrs[rede] = tec.get("forca_sinal")
         return attrs
 
 
@@ -122,15 +144,19 @@ class MelhorCoberturaSensor(RMFEntity, SensorEntity):
 
     @property
     def native_value(self):
-        itens = (self.coordinator.data or {}).get("cobertura", [])
+        itens = [
+            c
+            for c in (self.coordinator.data or {}).get("cobertura", [])
+            if c.get("qualidade_global", {}).get("score_percentual") is not None
+        ]
         if not itens:
             return None
         melhor = max(itens, key=lambda c: c["qualidade_global"]["score_percentual"])
-        return melhor["provedor"]
+        return melhor.get("provedor")
 
 
 class ErbsPorPertoSensor(RMFEntity, SensorEntity):
-    _attr_state_class = SensorStateClass.TOTAL
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, subentry) -> None:
         super().__init__(
@@ -147,7 +173,9 @@ class ErbsPorPertoSensor(RMFEntity, SensorEntity):
         por_op: dict[str, int] = {}
         por_tec: dict[str, int] = {}
         for erb in erbs:
-            por_op[erb["operadora"]] = por_op.get(erb["operadora"], 0) + 1
+            op = erb.get("operadora")
+            if op is not None:
+                por_op[op] = por_op.get(op, 0) + 1
             for tec in erb.get("tecnologias", []):
                 por_tec[tec] = por_tec.get(tec, 0) + 1
         return {"por_operadora": por_op, "por_tecnologia": por_tec}
@@ -167,13 +195,17 @@ class DistanciaErbSensor(RMFEntity, SensorEntity):
         )
 
     def _mais_proxima(self) -> dict | None:
-        erbs = (self.coordinator.data or {}).get("erbs", [])
-        return min(erbs, key=lambda e: e["distancia_km"]) if erbs else None
+        candidatos = [
+            e
+            for e in (self.coordinator.data or {}).get("erbs", [])
+            if e.get("distancia_km") is not None
+        ]
+        return min(candidatos, key=lambda e: e["distancia_km"]) if candidatos else None
 
     @property
     def native_value(self):
         erb = self._mais_proxima()
-        return erb["distancia_km"] if erb else None
+        return erb.get("distancia_km") if erb else None
 
     @property
     def extra_state_attributes(self):
@@ -181,7 +213,7 @@ class DistanciaErbSensor(RMFEntity, SensorEntity):
         if not erb:
             return {}
         return {
-            "operadora": erb["operadora"],
+            "operadora": erb.get("operadora"),
             "endereco": erb.get("endereco"),
             "tecnologias": erb.get("tecnologias"),
             "bandas": erb.get("bandas"),
@@ -189,7 +221,7 @@ class DistanciaErbSensor(RMFEntity, SensorEntity):
 
 
 class TotalSensor(RMFEntity, SensorEntity):
-    _attr_state_class = SensorStateClass.TOTAL
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, subentry, campo: str, rotulo: str) -> None:
         super().__init__(
@@ -203,7 +235,7 @@ class TotalSensor(RMFEntity, SensorEntity):
 
 
 class ErbsTecnologiaSensor(RMFEntity, SensorEntity):
-    _attr_state_class = SensorStateClass.TOTAL
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, subentry, tec: str) -> None:
         super().__init__(
@@ -222,7 +254,10 @@ class ErbsTecnologiaSensor(RMFEntity, SensorEntity):
     def extra_state_attributes(self):
         por_op = {}
         for op in (self.coordinator.data or {}).get("por_operadora", []):
-            por_op[op["operadora"]] = op.get("tecnologias", {}).get(self._tec)
+            operadora = op.get("operadora")
+            if operadora is None:
+                continue
+            por_op[operadora] = op.get("tecnologias", {}).get(self._tec)
         return {"por_operadora": por_op}
 
 
@@ -239,8 +274,7 @@ class BaseMunicipioSensor(RMFEntity, SensorEntity):
 
     @property
     def native_value(self):
-        valor = (self.coordinator.data or {}).get("base_atualizada_em")
-        return dt_util.parse_datetime(valor) if valor else None
+        return _parse_timestamp((self.coordinator.data or {}).get("base_atualizada_em"))
 
 
 class UltimaNovidadeIosSensor(RMFEntity, SensorEntity):
@@ -255,6 +289,6 @@ class UltimaNovidadeIosSensor(RMFEntity, SensorEntity):
     @property
     def native_value(self):
         mon = (self.coordinator.data or {}).get(self._monitor_id)
-        if mon and mon.get("ultima_entrega"):
-            return dt_util.parse_datetime(mon["ultima_entrega"])
-        return None
+        if not mon:
+            return None
+        return _parse_timestamp(mon.get("ultima_entrega"))
