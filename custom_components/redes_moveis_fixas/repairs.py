@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant.components.repairs import RepairsFlow
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_MONITOR_ID, CONF_MONITOR_SECRET
+from .api import RMFError
+from .const import CONF_MONITOR_ID, CONF_MONITOR_SECRET, SUBENTRY_MUNICIPIO
 
 
 class MonitorInativoFlow(RepairsFlow):
@@ -21,12 +23,21 @@ class MonitorInativoFlow(RepairsFlow):
     async def async_step_confirm(self, user_input=None):
         if user_input is not None:
             hass = self.hass
-            entry = hass.config_entries.async_get_entry(self._data["entry_id"])
-            subentry = entry.subentries[self._data["subentry_id"]]
+            entry = hass.config_entries.async_get_entry(self._data.get("entry_id"))
+            # A issue sobrevive à entry: nada em async_remove_entry/reload a
+            # apaga automaticamente se o usuário demora pra clicar "Corrigir".
+            # Sem estes guards, uma entry removida (entry is None) ou só
+            # descarregada (runtime_data já foi apagado pelo próprio
+            # ConfigEntry.async_unload — ver object.__delattr__ no core) faz
+            # este step estourar AttributeError puro em vez de abortar limpo.
+            if entry is None:
+                return self.async_abort(reason="entry_not_found")
+            if entry.state is not ConfigEntryState.LOADED:
+                return self.async_abort(reason="entry_not_loaded")
+            subentry = entry.subentries.get(self._data.get("subentry_id"))
+            if subentry is None:
+                return self.async_abort(reason="subentry_not_found")
             client = entry.runtime_data.client
-
-            from .api import RMFError
-            from .const import SUBENTRY_MUNICIPIO
 
             tipo = "cidade" if subentry.subentry_type == SUBENTRY_MUNICIPIO else "ios"
             velho = subentry.data.get(CONF_MONITOR_ID)

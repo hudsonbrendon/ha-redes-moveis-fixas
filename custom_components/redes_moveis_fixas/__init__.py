@@ -389,7 +389,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Entry removida: apaga os monitores na API (melhor esforço)."""
+    """Entry removida: apaga os monitores na API (melhor esforço) e as issues."""
     client = RMFClient(
         aiohttp_client.async_get_clientsession(hass), entry.data[CONF_TOKEN]
     )
@@ -402,3 +402,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
             await client.async_remover_monitor(tipo, monitor_id)
         except RMFError as err:
             _LOGGER.warning("Falha ao remover monitor %s: %s", monitor_id, err)
+
+    # Sem isto, o card de repair de uma subentry cuja entry foi removida
+    # inteira fica pra sempre no dashboard: nada mais vai chamar
+    # _checar_monitores por esta entry pra fechá-lo, e o fix flow agora
+    # aborta limpo (ver repairs.py) mas nunca APAGA a issue sozinho.
+    for subentry in entry.subentries.values():
+        ir.async_delete_issue(
+            hass, DOMAIN, f"{_PREFIXO_ISSUE_MONITOR}{subentry.subentry_id}"
+        )

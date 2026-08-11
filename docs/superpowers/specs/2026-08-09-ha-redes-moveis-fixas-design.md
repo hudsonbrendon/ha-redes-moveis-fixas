@@ -81,19 +81,19 @@ Cota por token, compartilhada entre subentries.
 | Health (entry) | `GET /health` (sem auth) | — | 15 min |
 | Monitores (entry) | `GET /api/monitorar-*` | 200/dia, 20/min | 6 h |
 
-4 locais + 2 cidades no default ≈ 230 req/dia. Intervalos ajustáveis por subentry (options flow).
+4 locais + 2 cidades no default ≈ 230 req/dia. Intervalos definidos na criação da subentry; não há options flow para editá-los depois (ver "Config flow" abaixo) — mudar exige remover e recriar a subentry.
 
 - `429` → `UpdateFailed` (backoff do DataUpdateCoordinator)
 - `403` → `ConfigEntryAuthFailed` → reauth flow (token expira em 90 dias)
 
 ## Seguir pessoa
 
-Subentry de pessoa escuta `async_track_state_change_event` do `person.X`. Refaz cobertura só se: moveu > 500 m (haversine vs. última consulta) **e** ≥ 10 min desde a última. Sem GPS/coords → entities `unavailable`, sem request.
+Subentry de pessoa escuta `async_track_state_change_event` do `person.X`. Refaz cobertura só se: moveu > 500 m (haversine vs. última consulta) **e** ≥ 10 min desde a última. Sem GPS/coords → coordinator não faz request (`lat`/`lon` None) e retorna `{}`; as entities ficam `unknown`, não `unavailable` (comportamento aceito, ver `tests/test_sensor.py::test_sensores_toleram_dados_vazios`).
 
 ## Webhook
 
 - Um `webhook_id` por entry, registrado no `async_setup_entry`; URL de `get_url(hass, external_url=True)`.
-- Validação: `X-RMF-Signature` = HMAC-SHA256(`timestamp + "." + corpo cru`, chave = `secret` do monitor). Tolerância de 5 min no timestamp (anti-replay). Inválido → `401` + log warning.
+- Validação: `X-RMF-Signature` = HMAC-SHA256(`timestamp + "." + corpo cru`, chave = `secret` do monitor). Tolerância de 5 min no timestamp (anti-replay). Inválido → `401` + log debug (endpoint público/sem auth: warning a cada tentativa de terceiro inflaria o log).
 - Responde `200` imediato; dispatch por `evento`: `novidades.cidade` → subentry do IBGE; `novidades.ios` → subentry do monitor.
 - `secret` guardado em `subentry.data`; redigido no diagnostics junto com o token.
 - Criar subentry com monitor → POST na API; remover subentry → DELETE.
@@ -123,7 +123,7 @@ Todas com `supports_response`:
 - **Município** — IBGE 7 dígitos, validado com GET `/resumo` (nome vira título); checkbox "monitorar novas torres"
 - **Monitor iOS** — países (multi, default `["BR"]`), operadoras (opcional), `incluir_beta`
 
-Options flow por subentry pra editar sem recriar.
+Sem options flow: intervalos e N máx. de geo_location são fixados na criação da subentry; editar exige remover e recriar.
 
 ## Testes
 

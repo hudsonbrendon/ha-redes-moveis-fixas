@@ -4,6 +4,7 @@ import copy
 import hashlib
 import hmac
 import json
+import logging
 import time
 
 import pytest
@@ -222,6 +223,48 @@ async def test_assinatura_ausente_401(hass, entry):
         FakeRequest(body, {"X-RMF-Timestamp": ts}),
     )
     assert resp.status == 401
+
+
+async def test_rejeicao_nao_loga_em_warning(hass, entry, caplog):
+    """Finding 7: este endpoint é público e sem autenticação — um estranho
+    batendo na URL não pode inflar o log do usuário em WARNING a cada
+    tentativa. As 3 rejeições (timestamp ausente, fora da tolerância,
+    assinatura/monitor sem match) precisam logar só em DEBUG.
+    """
+    caplog.set_level(
+        logging.DEBUG, logger="custom_components.redes_moveis_fixas.webhook"
+    )
+    payload = load_fixture("webhook_ios.json")
+    body = json.dumps(payload).encode()
+
+    # timestamp ausente
+    resp = await handle_webhook(
+        hass, WEBHOOK_ID, FakeRequest(body, {"X-RMF-Signature": "sha256=x"})
+    )
+    assert resp.status == 401
+
+    # timestamp fora da tolerância
+    ts_futuro = str(int(time.time()) + 3600)
+    ts, sig = _assinar(body, secret=SECRET_IOS, ts=ts_futuro)
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": sig}),
+    )
+    assert resp.status == 401
+
+    # assinatura que não bate com nenhum monitor
+    ts = str(int(time.time()))
+    resp = await handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        FakeRequest(body, {"X-RMF-Timestamp": ts, "X-RMF-Signature": "sha256=errada"}),
+    )
+    assert resp.status == 401
+
+    assert len(caplog.records) >= 3
+    assert all(rec.levelno == logging.DEBUG for rec in caplog.records)
+    assert not any(rec.levelno >= logging.WARNING for rec in caplog.records)
 
 
 async def test_assinatura_nao_ascii_401(hass, entry):

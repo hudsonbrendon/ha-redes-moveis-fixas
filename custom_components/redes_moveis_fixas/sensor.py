@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .const import SUBENTRY_LOCAL, SUBENTRY_MONITOR_IOS, SUBENTRY_MUNICIPIO
+from .const import (
+    CONF_MONITOR_ID,
+    SUBENTRY_LOCAL,
+    SUBENTRY_MONITOR_IOS,
+    SUBENTRY_MUNICIPIO,
+)
 from .entity import RMFEntity, RMFEntryEntity
 
 TECNOLOGIAS = ("2G", "3G", "4G", "5G")
@@ -282,7 +287,7 @@ class UltimaNovidadeIosSensor(RMFEntity, SensorEntity):
         super().__init__(
             coordinator, subentry, "ultima_novidade", "Última novidade do iOS"
         )
-        self._monitor_id = subentry.data.get("monitor_id")
+        self._monitor_id = subentry.data.get(CONF_MONITOR_ID)
 
     @property
     def native_value(self):

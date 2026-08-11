@@ -2,6 +2,8 @@
 
 import asyncio
 
+from homeassistant.helpers import entity_registry as er
+
 from custom_components.redes_moveis_fixas.const import SUBENTRY_LOCAL
 from custom_components.redes_moveis_fixas.geo_location import (
     ErbGeolocationEvent,
@@ -96,9 +98,20 @@ async def test_atualizacao_adiciona_erb(hass, entry_completa, mock_client):
 
 
 async def test_atualizacao_remove_erb(hass, entry_completa, mock_client):
+    """Regressão: `async_remove()` sem `force_remove=True` deixava um estado
+    `unavailable`/`restored` na state machine e a entry no entity registry —
+    a ERB removida do top-N nunca sumia de verdade (ver relatório final).
+
+    `_erbs_geo()` filtra por `attributes["source"]`, que o estado `unavailable`
+    não carrega — por isso as asserções abaixo checam a state machine e o
+    entity registry diretamente pelo entity_id, não a lista filtrada.
+    """
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
-    assert len(_erbs_geo(hass)) == 2
+    estados = _erbs_geo(hass)
+    assert len(estados) == 2
+    vivo = next(s for s in estados if "vivo" in s.name.lower())
+    entity_id = vivo.entity_id
 
     sid = _sid_local(entry_completa)
     rt = entry_completa.runtime_data
@@ -107,6 +120,10 @@ async def test_atualizacao_remove_erb(hass, entry_completa, mock_client):
     mock_client.async_estacoes.return_value = dados
     await rt.erbs[sid].async_refresh()
     await hass.async_block_till_done()
+
+    assert hass.states.get(entity_id) is None
+    registry = er.async_get(hass)
+    assert registry.async_get(entity_id) is None
 
     estados = _erbs_geo(hass)
     assert len(estados) == 1

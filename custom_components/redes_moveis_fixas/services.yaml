@@ -1,6 +1,12 @@
 consultar_cobertura:
+  name: Consultar cobertura
+  description: >-
+    Consulta a cobertura móvel (operadora, tecnologia, força de sinal) numa
+    localização.
   fields:
     latitude:
+      name: Latitude
+      description: Latitude do ponto a consultar.
       example: -5.812757
       selector:
         number:
@@ -8,6 +14,8 @@ consultar_cobertura:
           max: 6
           step: any
     longitude:
+      name: Longitude
+      description: Longitude do ponto a consultar.
       example: -35.255127
       selector:
         number:
@@ -15,6 +23,7 @@ consultar_cobertura:
           max: -28
           step: any
     entity_id:
+      name: Zona ou pessoa
       description: >-
         Zona ou pessoa da qual ler latitude/longitude. Se informado, tem
         precedência sobre os campos latitude/longitude explícitos.
@@ -24,20 +33,29 @@ consultar_cobertura:
             domain: ["zone", "person"]
 
 buscar_estacoes:
+  name: Buscar estações
+  description: >-
+    Busca as ERBs (estações rádio base) próximas a uma localização, com
+    filtros opcionais de operadora, tecnologia e banda.
   fields:
     latitude:
+      name: Latitude
+      description: Latitude do ponto de busca.
       selector:
         number:
           min: -35
           max: 6
           step: any
     longitude:
+      name: Longitude
+      description: Longitude do ponto de busca.
       selector:
         number:
           min: -75
           max: -28
           step: any
     entity_id:
+      name: Zona ou pessoa
       description: >-
         Zona ou pessoa da qual ler latitude/longitude. Se informado, tem
         precedência sobre os campos latitude/longitude explícitos.
@@ -46,26 +64,39 @@ buscar_estacoes:
           filter:
             domain: ["zone", "person"]
     operadora:
+      name: Operadora
+      description: Filtra por operadora(s), separadas por vírgula.
       example: "claro,vivo"
       selector:
         text:
     tecnologia:
+      name: Tecnologia
+      description: Filtra por tecnologia(s), separadas por vírgula.
       example: "NR,LTE"
       selector:
         text:
     banda:
+      name: Banda
+      description: Filtra por banda(s), separadas por vírgula.
       example: "78"
       selector:
         text:
     limite:
+      name: Limite
+      description: Número máximo de estações a retornar.
       selector:
         number:
           min: 1
           max: 1000
 
 resumo_do_municipio:
+  name: Resumo do município
+  description: >-
+    Consulta o resumo agregado de estações de um município pelo código IBGE.
   fields:
     codigo_ibge:
+      name: Código IBGE
+      description: Código IBGE do município (7 dígitos).
       required: true
       example: 3550308
       selector:

@@ -149,6 +149,38 @@ async def test_auth_header_enviado_e_health_sem_auth(client):
     assert "Authorization" not in health_headers
 
 
+async def test_dados_ausente_vira_rmferror(client):
+    """Finding 4: `payload["dados"]` cru levantava KeyError (fora da
+    hierarquia RMFError), o que bypassa toda tradução de erro rio abaixo
+    (SETUP_ERROR em vez de SETUP_RETRY, traceback cru em automações, etc).
+    Uma resposta malformada (sem "dados") agora vira RMFError.
+    """
+    with aioresponses() as m:
+        m.get(
+            f"{BASE_URL}/api/cobertura?lat=0&lon=0",
+            payload={"status": "ok"},  # sem "dados"
+        )
+        with pytest.raises(RMFError):
+            await client.async_cobertura(0, 0)
+
+
+async def test_criar_monitor_sem_id_ou_secret_vira_rmferror(client):
+    """Resposta de criação de monitor sem `id`/`secret`: `_provisionar_monitor`
+    (__init__.py) lê esses campos direto pra persistir na subentry — sem
+    validação aqui, a mesma KeyError fora da hierarquia RMFError escaparia.
+    """
+    with aioresponses() as m:
+        m.post(
+            f"{BASE_URL}/api/monitorar-ios",
+            status=201,
+            payload={"status": "ok", "dados": {"id": "abc123"}},  # sem "secret"
+        )
+        with pytest.raises(RMFError):
+            await client.async_criar_monitor_ios(
+                "https://ha.example.com/api/webhook/abc", ["BR"]
+            )
+
+
 async def test_criar_monitor_cidade(client):
     fixture = {
         "status": "ok",

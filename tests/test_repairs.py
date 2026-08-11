@@ -362,3 +362,94 @@ async def test_fix_flow_recria_monitor(hass, entry_completa, mock_client):
     sub_ios = _sub_ios(entry_completa)
     assert sub_ios.data["monitor_id"] == "novoid02"
     assert sub_ios.data["monitor_secret"] == "whsec_novo"
+
+
+async def test_fix_flow_aborta_se_entry_removida(hass, entry_completa):
+    """Blocking 3: a issue sobrevive à entry. Sem o guard, `entry is None`
+    faz `entry.subentries[...]` estourar AttributeError puro (o "Unknown
+    error occurred" do relatório) em vez de abortar limpo.
+    """
+    flow = MonitorInativoFlow(
+        {"entry_id": "entry-que-nao-existe-mais", "subentry_id": "qualquer"}
+    )
+    flow.hass = hass
+    result = await flow.async_step_confirm({})
+    assert result["type"] == "abort"
+    assert result["reason"] == "entry_not_found"
+
+
+async def test_fix_flow_aborta_se_entry_descarregada(hass, entry_completa, mock_client):
+    """`ConfigEntry.async_unload` apaga `entry.runtime_data` (object.__delattr__
+    no core) — sem o guard de estado, `entry.runtime_data.client` estoura
+    AttributeError pra uma entry NOT_LOADED (ex.: falhou reload após o
+    monitor cair) mas com a issue ainda aberta no dashboard.
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    _marcar_monitor_ios(entry_completa)
+    await _setup(hass, entry_completa, mock_client)
+
+    sub_ios = _sub_ios(entry_completa)
+    assert await hass.config_entries.async_unload(entry_completa.entry_id)
+    await hass.async_block_till_done()
+
+    flow = MonitorInativoFlow(
+        {"entry_id": entry_completa.entry_id, "subentry_id": sub_ios.subentry_id}
+    )
+    flow.hass = hass
+    result = await flow.async_step_confirm({})
+    assert result["type"] == "abort"
+    assert result["reason"] == "entry_not_loaded"
+
+
+async def test_fix_flow_aborta_se_subentry_sumiu(hass, entry_completa, mock_client):
+    """Guarda irmã: entry viva e carregada, mas a subentry específica já
+    não existe mais (removida entre a issue abrir e o usuário clicar Fix).
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+
+    flow = MonitorInativoFlow(
+        {
+            "entry_id": entry_completa.entry_id,
+            "subentry_id": "subentry-que-nao-existe-mais",
+        }
+    )
+    flow.hass = hass
+    result = await flow.async_step_confirm({})
+    assert result["type"] == "abort"
+    assert result["reason"] == "subentry_not_found"
+
+
+async def test_remove_entry_limpa_issues_de_monitor(hass, entry_completa, mock_client):
+    """async_remove_entry apagava só os monitores remotos; a issue local
+    (`monitor_inativo_{subentry_id}`) ficava pra sempre no dashboard porque
+    nada mais chama `_checar_monitores` por uma entry que já não existe.
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    _marcar_monitor_ios(entry_completa)
+    await _setup(hass, entry_completa, mock_client)
+
+    registry = ir.async_get(hass)
+    sub_ios = _sub_ios(entry_completa)
+    issue_id = f"monitor_inativo_{sub_ios.subentry_id}"
+    ir.async_create_issue(
+        hass,
+        "redes_moveis_fixas",
+        issue_id,
+        is_fixable=True,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="monitor_inativo",
+        data={
+            "entry_id": entry_completa.entry_id,
+            "subentry_id": sub_ios.subentry_id,
+        },
+    )
+    assert registry.async_get_issue("redes_moveis_fixas", issue_id) is not None
+
+    with patch(
+        "custom_components.redes_moveis_fixas.RMFClient", return_value=mock_client
+    ):
+        assert await hass.config_entries.async_remove(entry_completa.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get_issue("redes_moveis_fixas", issue_id) is None

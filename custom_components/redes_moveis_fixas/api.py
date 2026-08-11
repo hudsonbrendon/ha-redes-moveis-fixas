@@ -31,6 +31,32 @@ def _rota(tipo: str) -> str:
     return tipo
 
 
+def _dados(payload: Any) -> Any:
+    """Extrai `payload["dados"]`, sem KeyError pra resposta malformada.
+
+    Sem isto, um `payload["dados"]` cru levanta KeyError — fora da hierarquia
+    RMFError, então bypassa toda tradução de erro rio abaixo: SETUP_ERROR em
+    vez de SETUP_RETRY no provisionamento, traceback cru pras automações em
+    services.py, "erro desconhecido" no form da subentry de município.
+    """
+    if not isinstance(payload, dict) or "dados" not in payload:
+        raise RMFError("Resposta da API sem campo 'dados'")
+    return payload["dados"]
+
+
+def _dados_monitor(payload: Any) -> dict:
+    """Como `_dados`, mas também garante id/secret pra criação de monitor.
+
+    `_provisionar_monitor` (__init__.py) lê `dados["id"]`/`dados["secret"]`
+    direto pra persistir na subentry — sem esta validação aqui, a mesma
+    KeyError fora da hierarquia RMFError escaparia dali.
+    """
+    dados = _dados(payload)
+    if not isinstance(dados, dict) or "id" not in dados or "secret" not in dados:
+        raise RMFError("Resposta de criação de monitor sem 'id'/'secret'")
+    return dados
+
+
 class RMFClient:
     """Cliente assíncrono da API redesmoveisfixas.com."""
 
@@ -79,7 +105,7 @@ class RMFClient:
         payload = await self._request(
             "GET", "/api/cobertura", params={"lat": lat, "lon": lon}
         )
-        return payload["dados"]
+        return _dados(payload)
 
     async def async_estacoes(
         self,
@@ -103,18 +129,18 @@ class RMFClient:
             if val:
                 params[key] = val
         payload = await self._request("GET", "/api/estacoes", params=params)
-        return payload["dados"]
+        return _dados(payload)
 
     async def async_resumo_municipio(self, codigo_ibge: int) -> dict:
         payload = await self._request("GET", f"/api/municipios/{codigo_ibge}/resumo")
-        return payload["dados"]
+        return _dados(payload)
 
     async def async_health(self) -> dict:
         return await self._request("GET", "/health", auth=False)
 
     async def async_listar_monitores(self, tipo: str) -> list[dict]:
         payload = await self._request("GET", f"/api/monitorar-{_rota(tipo)}")
-        return payload["dados"]
+        return _dados(payload)
 
     async def async_criar_monitor_cidade(
         self, url: str, municipios: list[str], descricao: str | None = None
@@ -123,7 +149,7 @@ class RMFClient:
         if descricao:
             body["descricao"] = descricao
         payload = await self._request("POST", "/api/monitorar-cidade", json=body)
-        return payload["dados"]
+        return _dados_monitor(payload)
 
     async def async_criar_monitor_ios(
         self,
@@ -140,7 +166,7 @@ class RMFClient:
         if operadoras:
             body["operadoras"] = operadoras
         payload = await self._request("POST", "/api/monitorar-ios", json=body)
-        return payload["dados"]
+        return _dados_monitor(payload)
 
     async def async_remover_monitor(self, tipo: str, monitor_id: str) -> None:
         await self._request("DELETE", f"/api/monitorar-{_rota(tipo)}/{monitor_id}")

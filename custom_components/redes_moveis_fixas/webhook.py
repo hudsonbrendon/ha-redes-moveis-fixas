@@ -78,11 +78,14 @@ async def handle_webhook(hass: HomeAssistant, webhook_id: str, request) -> web.R
     try:
         ts_num = float(timestamp)
     except ValueError:
-        _LOGGER.warning("Webhook RMF sem timestamp válido")
+        # DEBUG, não WARNING: este endpoint é público e sem autenticação —
+        # um estranho batendo na URL com lixo não pode inflar o log de
+        # aviso do usuário a cada tentativa.
+        _LOGGER.debug("Webhook RMF sem timestamp válido")
         return web.Response(status=401)
     # math.isfinite descarta nan/inf, que passariam ilesos pelo `abs(...) > tolerância`.
     if not math.isfinite(ts_num) or abs(time.time() - ts_num) > TOLERANCIA_TIMESTAMP_S:
-        _LOGGER.warning("Webhook RMF com timestamp fora da tolerância")
+        _LOGGER.debug("Webhook RMF com timestamp fora da tolerância")
         return web.Response(status=401)
 
     try:
@@ -108,5 +111,5 @@ async def handle_webhook(hass: HomeAssistant, webhook_id: str, request) -> web.R
             )
             return web.Response(status=200)
 
-    _LOGGER.warning("Webhook RMF com assinatura inválida ou sem monitor casando")
+    _LOGGER.debug("Webhook RMF com assinatura inválida ou sem monitor casando")
     return web.Response(status=401)

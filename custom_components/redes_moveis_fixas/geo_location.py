@@ -10,6 +10,7 @@ from homeassistant.components.geo_location import GeolocationEvent
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import UnitOfLength
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_MAX_GEO, DEFAULT_MAX_GEO, DOMAIN, SUBENTRY_LOCAL
@@ -137,7 +138,25 @@ async def _remover(ent: ErbGeolocationEvent) -> None:
     """
     for _ in range(_MAX_ESPERA_ADD):
         if ent.hass is not None:
-            await ent.async_remove()
+            # force_remove=True: sem isto, como RMFEntity dá unique_id a toda
+            # entity, o entity_registry tem uma entry pra cada ERB e
+            # Entity._async_remove_impl pega o ramo "mantém a registry row,
+            # escreve estado unavailable" em vez de remover de verdade — o
+            # padrão do geo_location.demo do próprio HA core é justamente
+            # forçar aqui. Estas são entities transitórias/discovery: sem
+            # force_remove, um local em modo pessoa deixaria uma torre morta
+            # (marcador unavailable no mapa) atrás de si a cada troca de top-N.
+            #
+            # force_remove só tira o ESTADO — a linha do entity_registry
+            # sobrevive (é assim que o registry funciona: unique_id existiu
+            # uma vez, fica registrado pra sempre até alguém apagar). Sem a
+            # remoção explícita abaixo, a troca de top-N acumularia uma
+            # entry morta no registry por ERB já vista, pra sempre.
+            hass, entity_id = ent.hass, ent.entity_id
+            await ent.async_remove(force_remove=True)
+            registry = er.async_get(hass)
+            if registry.async_get(entity_id) is not None:
+                registry.async_remove(entity_id)
             return
         await asyncio.sleep(0)
     _LOGGER.debug(
