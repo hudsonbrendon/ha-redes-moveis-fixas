@@ -91,7 +91,11 @@ class NovasTorresEvent(RMFEventBase):
                     "municipio": payload.get("municipio"),
                 },
             )
-        self.async_write_ha_state()
+            # um write por item: _trigger_event só atualiza atributos em
+            # memória, quem publica o state_changed é o write. Um write só
+            # no final do loop faria os itens 1..N-1 de uma entrega com
+            # várias novidades nunca aparecerem no state machine.
+            self.async_write_ha_state()
 
 
 class NovidadesIosEvent(RMFEventBase):
@@ -131,4 +135,4 @@ class NovidadesIosEvent(RMFEventBase):
                     "ocorrido_em": nov.get("ocorrido_em"),
                 },
             )
-        self.async_write_ha_state()
+            self.async_write_ha_state()
