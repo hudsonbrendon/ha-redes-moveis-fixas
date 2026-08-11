@@ -69,7 +69,7 @@ class NovasTorresEvent(RMFEventBase):
             coordinator,
             subentry,
             "novas_torres",
-            f"Novas torres em {subentry.title}",
+            "Novas torres",
         )
 
     @callback
@@ -104,7 +104,7 @@ class NovidadesIosEvent(RMFEventBase):
     _attr_event_types = ["nova", "alterada", "removida"]
 
     def __init__(self, coordinator, subentry: ConfigSubentry) -> None:
-        super().__init__(coordinator, subentry, "novidades_ios", "Novidades do iOS")
+        super().__init__(coordinator, subentry, "novidades_ios", "Novidades")
 
     @callback
     def _recebido(self, payload: Any) -> None:

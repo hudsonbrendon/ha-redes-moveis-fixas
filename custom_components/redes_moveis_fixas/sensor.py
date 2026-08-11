@@ -109,7 +109,7 @@ class CoberturaOperadoraSensor(RMFEntity, SensorEntity):
             coordinator,
             subentry,
             f"cobertura_{provedor.lower()}",
-            f"Cobertura da {provedor} em {subentry.title}",
+            f"Cobertura da {provedor}",
         )
         self._provedor = provedor
 
@@ -141,9 +141,7 @@ class CoberturaOperadoraSensor(RMFEntity, SensorEntity):
 
 class MelhorCoberturaSensor(RMFEntity, SensorEntity):
     def __init__(self, coordinator, subentry) -> None:
-        super().__init__(
-            coordinator, subentry, "melhor", f"Melhor cobertura em {subentry.title}"
-        )
+        super().__init__(coordinator, subentry, "melhor", "Melhor cobertura")
 
     @property
     def native_value(self):
@@ -162,9 +160,7 @@ class ErbsPorPertoSensor(RMFEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, subentry) -> None:
-        super().__init__(
-            coordinator, subentry, "erbs_total", f"ERBs por perto de {subentry.title}"
-        )
+        super().__init__(coordinator, subentry, "erbs_total", "ERBs por perto")
 
     @property
     def native_value(self):
@@ -196,7 +192,7 @@ class DistanciaErbSensor(RMFEntity, SensorEntity):
             coordinator,
             subentry,
             "erb_proxima",
-            f"Distância da ERB mais próxima de {subentry.title}",
+            "Distância da ERB mais próxima",
         )
 
     def _mais_proxima(self) -> dict | None:
@@ -229,7 +225,7 @@ class TotalSensor(RMFEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, subentry, campo: str, rotulo: str) -> None:
-        super().__init__(coordinator, subentry, campo, f"{rotulo} em {subentry.title}")
+        super().__init__(coordinator, subentry, campo, rotulo)
         self._campo = campo
 
     @property
@@ -245,7 +241,7 @@ class ErbsTecnologiaSensor(RMFEntity, SensorEntity):
             coordinator,
             subentry,
             f"erbs_{tec.lower()}",
-            f"ERBs {tec} em {subentry.title}",
+            f"ERBs {tec}",
         )
         self._tec = tec
 
@@ -272,7 +268,7 @@ class BaseMunicipioSensor(RMFEntity, SensorEntity):
             coordinator,
             subentry,
             "base_atualizada",
-            f"Base de {subentry.title} atualizada em",
+            "Base atualizada em",
         )
 
     @property
@@ -284,9 +280,7 @@ class UltimaNovidadeIosSensor(RMFEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     def __init__(self, coordinator, subentry) -> None:
-        super().__init__(
-            coordinator, subentry, "ultima_novidade", "Última novidade do iOS"
-        )
+        super().__init__(coordinator, subentry, "ultima_novidade", "Última novidade")
         self._monitor_id = subentry.data.get(CONF_MONITOR_ID)
 
     @property

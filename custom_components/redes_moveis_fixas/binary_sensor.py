@@ -34,13 +34,11 @@ async def async_setup_entry(
             CONF_MONITOR_ID
         ):
             entities.append(
-                MonitorAtivoBinarySensor(
-                    rt.monitores, subentry, f"Monitor de {subentry.title} ativo"
-                )
+                MonitorAtivoBinarySensor(rt.monitores, subentry, "Monitor ativo")
             )
         elif subentry.subentry_type == SUBENTRY_MONITOR_IOS:
             entities.append(
-                MonitorAtivoBinarySensor(rt.monitores, subentry, "Monitor iOS ativo")
+                MonitorAtivoBinarySensor(rt.monitores, subentry, "Monitor ativo")
             )
         if entities:
             async_add_entities(entities, config_subentry_id=sid)
@@ -50,7 +48,7 @@ class StatusApiBinarySensor(RMFEntryEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
     def __init__(self, coordinator, entry) -> None:
-        super().__init__(coordinator, entry, "status", "Status da API RMF")
+        super().__init__(coordinator, entry, "status", "Status")
 
     @property
     def is_on(self) -> bool:
@@ -62,9 +60,7 @@ class StatusApiBinarySensor(RMFEntryEntity, BinarySensorEntity):
 
 class Disponivel5GBinarySensor(RMFEntity, BinarySensorEntity):
     def __init__(self, coordinator, subentry) -> None:
-        super().__init__(
-            coordinator, subentry, "5g", f"5G disponível em {subentry.title}"
-        )
+        super().__init__(coordinator, subentry, "5g", "5G disponível")
 
     @property
     def is_on(self) -> bool:

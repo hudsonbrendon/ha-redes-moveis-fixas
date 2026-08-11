@@ -49,43 +49,48 @@ Via [HACS](https://hacs.xyz/) como repositório customizado:
 
 ## Entidades
 
+> A partir do Home Assistant ≥ 2026.8, o core prefixa o entity_id gerado com o
+> nome do device (ex. device "Casa" + nome "Cobertura da Vivo" →
+> `sensor.casa_cobertura_da_vivo`). Os IDs abaixo já refletem esse prefixo; em
+> cores mais antigos o prefixo `<device>_` não aparece.
+
 **Device "API RMF"** (nível da entrada):
 
 | Entidade | Descrição |
 |---|---|
-| `binary_sensor.status_da_api_rmf` | Conectividade, via `/health` |
-| `sensor.base_de_cobertura_atualizada_em` | Timestamp da última atualização da base de cobertura |
-| `sensor.base_de_estacoes_atualizada_em` | Timestamp da última atualização da base de estações |
+| `binary_sensor.api_rmf_status` | Conectividade, via `/health` |
+| `sensor.api_rmf_base_de_cobertura_atualizada_em` | Timestamp da última atualização da base de cobertura |
+| `sensor.api_rmf_base_de_estacoes_atualizada_em` | Timestamp da última atualização da base de estações |
 
-**Device por subentry Local** (ex. "Casa"):
-
-| Entidade | Descrição |
-|---|---|
-| `sensor.cobertura_da_<operadora>_em_casa` | Uma por operadora retornada pela API; state = score de qualidade (%); atributos com classificação e força de sinal por tecnologia |
-| `sensor.melhor_cobertura_em_casa` | Operadora com o maior score |
-| `binary_sensor.5g_disponivel_em_casa` | Liga se alguma operadora tem 5G disponível |
-| `sensor.erbs_por_perto_de_casa` | Total de ERBs num raio de 5 km; atributos com contagem por operadora e por tecnologia |
-| `sensor.distancia_da_erb_mais_proxima_de_casa` | Distância (km) até a ERB mais próxima; atributos com operadora, endereço, tecnologias e bandas |
-| `geo_location.erb_*` | Até N ERBs mais próximas plotadas no mapa (N = "Máx. de torres no mapa"; 0 desliga) |
-
-**Device por subentry Município** (ex. "São Paulo (SP)"):
+**Device por subentry Local** (ex. "Casa" → prefixo `casa_`):
 
 | Entidade | Descrição |
 |---|---|
-| `sensor.erbs_em_<municipio>` | Total de ERBs celulares |
-| `sensor.estacoes_em_<municipio>` | Total de estações |
-| `sensor.erbs_5g_em_<municipio>` (e 4g/3g/2g) | Total por tecnologia; atributos com quebra por operadora |
-| `sensor.base_de_<municipio>_atualizada_em` | Timestamp da última atualização da base |
-| `event.novas_torres_em_<municipio>` | Dispara `nova_erb` ou `upgrade_tecnologia` quando o monitor entrega uma novidade |
-| `binary_sensor.monitor_de_<municipio>_ativo` | Só existe se "monitorar" estiver ativado; atributos: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro` |
+| `sensor.<device>_cobertura_da_<operadora>` | Uma por operadora retornada pela API; state = score de qualidade (%); atributos com classificação e força de sinal por tecnologia |
+| `sensor.<device>_melhor_cobertura` | Operadora com o maior score |
+| `binary_sensor.<device>_5g_disponivel` | Liga se alguma operadora tem 5G disponível |
+| `sensor.<device>_erbs_por_perto` | Total de ERBs num raio de 5 km; atributos com contagem por operadora e por tecnologia |
+| `sensor.<device>_distancia_da_erb_mais_proxima` | Distância (km) até a ERB mais próxima; atributos com operadora, endereço, tecnologias e bandas |
+| `geo_location.<device>_erb_*` | Até N ERBs mais próximas plotadas no mapa (N = "Máx. de torres no mapa"; 0 desliga) |
+
+**Device por subentry Município** (ex. "São Paulo (SP)" → prefixo `sao_paulo_sp_`):
+
+| Entidade | Descrição |
+|---|---|
+| `sensor.<device>_erbs` | Total de ERBs celulares |
+| `sensor.<device>_estacoes` | Total de estações |
+| `sensor.<device>_erbs_5g` (e 4g/3g/2g) | Total por tecnologia; atributos com quebra por operadora |
+| `sensor.<device>_base_atualizada_em` | Timestamp da última atualização da base |
+| `event.<device>_novas_torres` | Dispara `nova_erb` ou `upgrade_tecnologia` quando o monitor entrega uma novidade |
+| `binary_sensor.<device>_monitor_ativo` | Só existe se "monitorar" estiver ativado; atributos: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro` |
 
 **Device por subentry Monitor iOS**:
 
 | Entidade | Descrição |
 |---|---|
-| `event.novidades_do_ios` | Dispara `nova`, `alterada` ou `removida` por bundle de operadora Apple |
-| `sensor.ultima_novidade_do_ios` | Timestamp da última entrega do monitor |
-| `binary_sensor.monitor_ios_ativo` | Atributos: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro` |
+| `event.monitor_ios_novidades` | Dispara `nova`, `alterada` ou `removida` por bundle de operadora Apple |
+| `sensor.monitor_ios_ultima_novidade` | Timestamp da última entrega do monitor |
+| `binary_sensor.monitor_ios_monitor_ativo` | Atributos: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro` |
 
 > Os sensores de contagem (ERBs/estações do município, por tecnologia) usam
 > `state_class: measurement`, não `total` — são totais correntes lidos a cada
@@ -138,7 +143,7 @@ response_variable: resumo
 
 ## Limitações conhecidas
 
-- **Operadora nova exige reload.** Os sensores `sensor.cobertura_da_<operadora>_*`
+- **Operadora nova exige reload.** Os sensores `sensor.<device>_cobertura_da_<operadora>`
   são criados uma vez, no setup da entrada, a partir das operadoras que a API
   devolveu naquele momento. Se uma operadora passar a atender o local depois
   disso, o sensor dela só aparece depois de um reload da entrada (ou reinício).

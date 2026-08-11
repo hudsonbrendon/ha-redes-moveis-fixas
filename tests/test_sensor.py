@@ -23,19 +23,19 @@ async def test_sensores_de_cobertura(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
 
-    vivo = hass.states.get("sensor.cobertura_da_vivo_em_casa")
+    vivo = hass.states.get("sensor.casa_cobertura_da_vivo")
     assert vivo.state == "90"
     assert vivo.attributes["classificacao"] == "Excelente"
     assert vivo.attributes["5G"] == 5
 
-    melhor = hass.states.get("sensor.melhor_cobertura_em_casa")
+    melhor = hass.states.get("sensor.casa_melhor_cobertura")
     assert melhor.state == "Vivo"
 
-    erbs = hass.states.get("sensor.erbs_por_perto_de_casa")
+    erbs = hass.states.get("sensor.casa_erbs_por_perto")
     assert erbs.state == "418"
     assert erbs.attributes["por_operadora"]["Claro"] == 1
 
-    dist = hass.states.get("sensor.distancia_da_erb_mais_proxima_de_casa")
+    dist = hass.states.get("sensor.casa_distancia_da_erb_mais_proxima")
     assert dist.state == "1.2"
     assert dist.attributes["operadora"] == "Claro"
 
@@ -44,8 +44,8 @@ async def test_sensores_de_municipio(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
 
-    assert hass.states.get("sensor.erbs_em_sao_paulo_sp").state == "6364"
-    s5g = hass.states.get("sensor.erbs_5g_em_sao_paulo_sp")
+    assert hass.states.get("sensor.sao_paulo_sp_erbs").state == "6364"
+    s5g = hass.states.get("sensor.sao_paulo_sp_erbs_5g")
     assert s5g.state == "3944"
     assert s5g.attributes["por_operadora"]["Vivo"] == 1402
 
@@ -53,10 +53,10 @@ async def test_sensores_de_municipio(hass, entry_completa, mock_client):
 async def test_sensores_da_api(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
-    base = hass.states.get("sensor.base_de_cobertura_atualizada_em")
+    base = hass.states.get("sensor.api_rmf_base_de_cobertura_atualizada_em")
     assert base.state.startswith("2026-07-22")
     # os dois device de dependência da entry, não só "cobertura"
-    base_estacoes = hass.states.get("sensor.base_de_estacoes_atualizada_em")
+    base_estacoes = hass.states.get("sensor.api_rmf_base_de_estacoes_atualizada_em")
     assert base_estacoes.state.startswith("2026-07-23")
 
 
@@ -68,18 +68,18 @@ async def test_sensores_extra_cobertura_e_municipio(hass, entry_completa, mock_c
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
 
-    claro = hass.states.get("sensor.cobertura_da_claro_em_casa")
+    claro = hass.states.get("sensor.casa_cobertura_da_claro")
     assert claro.state == "72"
     assert claro.attributes["classificacao"] == "Boa"
     assert claro.attributes["4G"] == 4
 
-    assert hass.states.get("sensor.estacoes_em_sao_paulo_sp").state == "77790"
+    assert hass.states.get("sensor.sao_paulo_sp_estacoes").state == "77790"
 
-    s4g = hass.states.get("sensor.erbs_4g_em_sao_paulo_sp")
+    s4g = hass.states.get("sensor.sao_paulo_sp_erbs_4g")
     assert s4g.state == "6201"
     assert s4g.attributes["por_operadora"]["Vivo"] == 2190
 
-    dist = hass.states.get("sensor.distancia_da_erb_mais_proxima_de_casa")
+    dist = hass.states.get("sensor.casa_distancia_da_erb_mais_proxima")
     assert dist.attributes["endereco"] == {
         "logradouro": "Av. Paulista, 1000",
         "cidade": "São Paulo",
@@ -97,27 +97,27 @@ async def test_atributos_dos_tipos_de_sensor(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
 
-    percentual = hass.states.get("sensor.cobertura_da_vivo_em_casa")
+    percentual = hass.states.get("sensor.casa_cobertura_da_vivo")
     assert percentual.attributes["unit_of_measurement"] == "%"
     assert percentual.attributes["state_class"] == SensorStateClass.MEASUREMENT
     assert "device_class" not in percentual.attributes
 
-    distancia = hass.states.get("sensor.distancia_da_erb_mais_proxima_de_casa")
+    distancia = hass.states.get("sensor.casa_distancia_da_erb_mais_proxima")
     assert distancia.attributes["device_class"] == SensorDeviceClass.DISTANCE
     assert distancia.attributes["unit_of_measurement"] == "km"
     assert distancia.attributes["state_class"] == SensorStateClass.MEASUREMENT
 
-    timestamp = hass.states.get("sensor.base_de_cobertura_atualizada_em")
+    timestamp = hass.states.get("sensor.api_rmf_base_de_cobertura_atualizada_em")
     assert timestamp.attributes["device_class"] == SensorDeviceClass.TIMESTAMP
     assert "unit_of_measurement" not in timestamp.attributes
     assert "state_class" not in timestamp.attributes
 
-    contagem = hass.states.get("sensor.erbs_por_perto_de_casa")
+    contagem = hass.states.get("sensor.casa_erbs_por_perto")
     assert contagem.attributes["state_class"] == SensorStateClass.MEASUREMENT
     assert "device_class" not in contagem.attributes
     assert "unit_of_measurement" not in contagem.attributes
 
-    total_municipio = hass.states.get("sensor.erbs_em_sao_paulo_sp")
+    total_municipio = hass.states.get("sensor.sao_paulo_sp_erbs")
     assert total_municipio.attributes["state_class"] == SensorStateClass.MEASUREMENT
 
 
@@ -127,13 +127,13 @@ async def test_sensores_toleram_dados_vazios(hass, entry_completa, mock_client):
     await _setup(hass, entry_completa, mock_client)
 
     esperado_unknown = (
-        "sensor.melhor_cobertura_em_casa",
-        "sensor.erbs_por_perto_de_casa",
-        "sensor.distancia_da_erb_mais_proxima_de_casa",
-        "sensor.erbs_em_sao_paulo_sp",
-        "sensor.estacoes_em_sao_paulo_sp",
-        "sensor.erbs_5g_em_sao_paulo_sp",
-        "sensor.base_de_sao_paulo_sp_atualizada_em",
+        "sensor.casa_melhor_cobertura",
+        "sensor.casa_erbs_por_perto",
+        "sensor.casa_distancia_da_erb_mais_proxima",
+        "sensor.sao_paulo_sp_erbs",
+        "sensor.sao_paulo_sp_estacoes",
+        "sensor.sao_paulo_sp_erbs_5g",
+        "sensor.sao_paulo_sp_base_atualizada_em",
     )
     for entity_id in esperado_unknown:
         state = hass.states.get(entity_id)
@@ -142,13 +142,13 @@ async def test_sensores_toleram_dados_vazios(hass, entry_completa, mock_client):
 
     # cobertura sem coordenadas: coordinator.data == {} -> nenhum provedor, nenhuma
     # entidade de cobertura por operadora é criada (limitação conhecida/aceita)
-    assert hass.states.get("sensor.cobertura_da_vivo_em_casa") is None
+    assert hass.states.get("sensor.casa_cobertura_da_vivo") is None
 
-    erbs = hass.states.get("sensor.erbs_por_perto_de_casa")
+    erbs = hass.states.get("sensor.casa_erbs_por_perto")
     assert erbs.attributes["por_operadora"] == {}
     assert erbs.attributes["por_tecnologia"] == {}
 
-    dist = hass.states.get("sensor.distancia_da_erb_mais_proxima_de_casa")
+    dist = hass.states.get("sensor.casa_distancia_da_erb_mais_proxima")
     for chave in ("operadora", "endereco", "tecnologias", "bandas"):
         assert chave not in dist.attributes
 
@@ -192,26 +192,29 @@ async def test_sensores_toleram_payload_malformado(hass, entry_completa, mock_cl
     await _setup(hass, entry_completa, mock_client)
 
     # registro sem "provedor" foi pulado no setup — não derrubou a plataforma inteira
-    assert hass.states.get("sensor.cobertura_da_tim_em_casa").state == "unknown"
-    vivo = hass.states.get("sensor.cobertura_da_vivo_em_casa")
+    assert hass.states.get("sensor.casa_cobertura_da_tim").state == "unknown"
+    vivo = hass.states.get("sensor.casa_cobertura_da_vivo")
     assert vivo.state == "90"
     assert vivo.attributes.get("5G") is None  # tecnologia sem "rede" foi ignorada
 
-    melhor = hass.states.get("sensor.melhor_cobertura_em_casa")
+    melhor = hass.states.get("sensor.casa_melhor_cobertura")
     assert melhor.state == "Vivo"
 
-    dist = hass.states.get("sensor.distancia_da_erb_mais_proxima_de_casa")
+    dist = hass.states.get("sensor.casa_distancia_da_erb_mais_proxima")
     assert dist.state == "3.0"
     assert dist.attributes["operadora"] is None
 
-    erbs = hass.states.get("sensor.erbs_por_perto_de_casa")
+    erbs = hass.states.get("sensor.casa_erbs_por_perto")
     assert erbs.attributes["por_operadora"] == {"Claro": 1}
 
     # dependência sem "nome" nunca casa com "cobertura" -> estado unknown, sem KeyError
-    assert hass.states.get("sensor.base_de_cobertura_atualizada_em").state == "unknown"
-    assert hass.states.get("sensor.base_de_estacoes_atualizada_em").state.startswith(
-        "2026-07-23"
+    assert (
+        hass.states.get("sensor.api_rmf_base_de_cobertura_atualizada_em").state
+        == "unknown"
     )
+    assert hass.states.get(
+        "sensor.api_rmf_base_de_estacoes_atualizada_em"
+    ).state.startswith("2026-07-23")
 
 
 async def test_timestamp_sem_timezone_nao_quebra(hass, entry_completa, mock_client):
@@ -224,7 +227,7 @@ async def test_timestamp_sem_timezone_nao_quebra(hass, entry_completa, mock_clie
     }
     await _setup(hass, entry_completa, mock_client)
 
-    state = hass.states.get("sensor.base_de_cobertura_atualizada_em")
+    state = hass.states.get("sensor.api_rmf_base_de_cobertura_atualizada_em")
     assert state is not None
     assert state.state != "unknown"
 
@@ -241,6 +244,6 @@ async def test_ultima_novidade_ios(hass, entry_completa, mock_client):
     hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
     await _setup(hass, entry_completa, mock_client)
 
-    state = hass.states.get("sensor.ultima_novidade_do_ios")
+    state = hass.states.get("sensor.monitor_ios_ultima_novidade")
     assert state is not None
     assert state.state.startswith("2026-07-26")

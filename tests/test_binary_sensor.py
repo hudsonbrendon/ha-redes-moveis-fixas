@@ -22,15 +22,15 @@ async def test_binary_sensors(hass, entry_completa, mock_client):
     mock_client.async_listar_monitores.return_value = []
     await _setup(hass, entry_completa, mock_client)
 
-    status = hass.states.get("binary_sensor.status_da_api_rmf")
+    status = hass.states.get("binary_sensor.api_rmf_status")
     assert status.state == "on"
     assert status.attributes["device_class"] == BinarySensorDeviceClass.CONNECTIVITY
 
-    assert hass.states.get("binary_sensor.5g_disponivel_em_casa").state == "on"
+    assert hass.states.get("binary_sensor.casa_5g_disponivel").state == "on"
     # monitor recém-criado ainda não aparece na listagem mockada (vazia) → off
-    assert hass.states.get("binary_sensor.monitor_ios_ativo").state == "off"
+    assert hass.states.get("binary_sensor.monitor_ios_monitor_ativo").state == "off"
     # idem pro monitor do município
-    assert hass.states.get("binary_sensor.monitor_de_sao_paulo_sp_ativo").state == "off"
+    assert hass.states.get("binary_sensor.sao_paulo_sp_monitor_ativo").state == "off"
 
 
 async def test_monitor_ativo_quando_listado(hass, entry_completa, mock_client):
@@ -44,7 +44,7 @@ async def test_monitor_ativo_quando_listado(hass, entry_completa, mock_client):
     mock_client.async_listar_monitores.side_effect = _listar
     await _setup(hass, entry_completa, mock_client)
 
-    estado = hass.states.get("binary_sensor.monitor_ios_ativo")
+    estado = hass.states.get("binary_sensor.monitor_ios_monitor_ativo")
     assert estado.state == "on"
     assert estado.attributes["falhas_seguidas"] == 0
 
@@ -68,7 +68,7 @@ async def test_monitor_cidade_ativo_quando_listado(hass, entry_completa, mock_cl
     mock_client.async_listar_monitores.side_effect = _listar
     await _setup(hass, entry_completa, mock_client)
 
-    estado = hass.states.get("binary_sensor.monitor_de_sao_paulo_sp_ativo")
+    estado = hass.states.get("binary_sensor.sao_paulo_sp_monitor_ativo")
     assert estado.state == "on"
     assert estado.attributes["falhas_seguidas"] == 2
     assert estado.attributes["ultimo_erro"] == "timeout"
@@ -87,7 +87,7 @@ async def test_5g_indisponivel(hass, entry_completa, mock_client):
     }
     await _setup(hass, entry_completa, mock_client)
 
-    assert hass.states.get("binary_sensor.5g_disponivel_em_casa").state == "off"
+    assert hass.states.get("binary_sensor.casa_5g_disponivel").state == "off"
 
 
 async def test_status_api_off_quando_health_nao_ok(hass, entry_completa, mock_client):
@@ -95,7 +95,7 @@ async def test_status_api_off_quando_health_nao_ok(hass, entry_completa, mock_cl
     mock_client.async_health.return_value = {"status": "degraded"}
     await _setup(hass, entry_completa, mock_client)
 
-    assert hass.states.get("binary_sensor.status_da_api_rmf").state == "off"
+    assert hass.states.get("binary_sensor.api_rmf_status").state == "off"
 
 
 def _subentry(subentry_type: str, data: dict, title: str = "Teste") -> ConfigSubentry:

@@ -4,15 +4,30 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
+from aiohttp import client_reqrep
 from homeassistant.config_entries import ConfigSubentryData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.redes_moveis_fixas.const import DOMAIN
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+# ponytail: aioresponses 0.7.9 (latest upstream) still builds ClientResponse
+# without `stream_writer`, which aiohttp 3.14.3 (pinned by HA 2026.8.1) made
+# mandatory. Shim the default in so mocked requests keep working; upgrade
+# path is to drop this once aioresponses ships a fix.
+_orig_client_response_init = client_reqrep.ClientResponse.__init__
+
+
+def _client_response_init_compat(self, *args, **kwargs):
+    kwargs.setdefault("stream_writer", Mock(output_size=0))
+    _orig_client_response_init(self, *args, **kwargs)
+
+
+client_reqrep.ClientResponse.__init__ = _client_response_init_compat
 
 
 def load_fixture(name: str) -> dict | list:

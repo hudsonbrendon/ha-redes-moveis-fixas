@@ -41,31 +41,37 @@ Camadas: `api.py` não importa HA → coordinators traduzem erros (`UpdateFailed
 
 ## Entidades
 
-Nomenclatura: `<medida>_<prep>_<local>` PT-BR (padrão do usuário).
+Nomenclatura: `<medida>_<prep>` PT-BR, sem repetir o local — o device (nome do
+subentry, ou "API RMF" na entry) já carrega essa informação
+(`_attr_has_entity_name = False`, nome completo PT-BR na entidade). Desde o
+Home Assistant ≥ 2026.8, o core prefixa o entity_id gerado com o nome do
+device automaticamente (`entity_id_parts` default passou a incluir
+`DEVICE`); os IDs abaixo já refletem esse prefixo. Em cores mais antigos
+(testado até 2026.2.x) o prefixo `<device>_` não aparece.
 
 **Device "API RMF"** (entry):
-- `binary_sensor.status_da_api_rmf` — connectivity via `/health`
-- `sensor.base_de_cobertura_atualizada_em`, `sensor.base_de_estacoes_atualizada_em` — timestamps das dependências do `/health`
+- `binary_sensor.api_rmf_status` — connectivity via `/health`
+- `sensor.api_rmf_base_de_cobertura_atualizada_em`, `sensor.api_rmf_base_de_estacoes_atualizada_em` — timestamps das dependências do `/health`
 
-**Device por subentry Local** (zona ou pessoa; ex. "Casa"):
-- `sensor.cobertura_da_<operadora>_em_casa` — dinâmico por operadora retornada; state = `score_percentual` (%), `state_class: measurement`; attrs: classificação, força de sinal por tecnologia (5G/4G/3G/2G)
-- `sensor.melhor_cobertura_em_casa` — operadora com maior score
-- `binary_sensor.5g_disponivel_em_casa` — alguma operadora com 5G
-- `sensor.erbs_por_perto_de_casa` — `total_erbs` raio 5 km; attrs: contagem por operadora e por tecnologia
-- `sensor.distancia_da_erb_mais_proxima_de_casa` — km; attrs: operadora, endereço, tecnologias, bandas
-- `geo_location.*` — N ERBs mais próximas no mapa; attrs: operadora, tecnologias, bandas
+**Device por subentry Local** (zona ou pessoa; ex. "Casa" → prefixo `casa_`):
+- `sensor.casa_cobertura_da_<operadora>` — dinâmico por operadora retornada; state = `score_percentual` (%), `state_class: measurement`; attrs: classificação, força de sinal por tecnologia (5G/4G/3G/2G)
+- `sensor.casa_melhor_cobertura` — operadora com maior score
+- `binary_sensor.casa_5g_disponivel` — alguma operadora com 5G
+- `sensor.casa_erbs_por_perto` — `total_erbs` raio 5 km; attrs: contagem por operadora e por tecnologia
+- `sensor.casa_distancia_da_erb_mais_proxima` — km; attrs: operadora, endereço, tecnologias, bandas
+- `geo_location.casa_erb_*` — N ERBs mais próximas no mapa; attrs: operadora, tecnologias, bandas
 
-**Device por subentry Município** (ex. "Uberlândia"):
-- `sensor.erbs_em_uberlandia` (celular), `sensor.estacoes_em_uberlandia` (total)
-- `sensor.erbs_5g_em_uberlandia` + 4G/3G/2G — `state_class: measurement` (leitura pontual a cada atualização, não um acumulador — `total` geraria uma estatística de soma e trataria uma queda de contagem como reset); attrs: quebra por operadora
-- `sensor.base_de_uberlandia_atualizada_em`
-- `event.novas_torres_em_uberlandia` — event_types: `nova_erb`, `upgrade_tecnologia`; attrs do payload do webhook; um `async_write_ha_state()` por item da entrega (não um só no fim), senão itens 1..N-1 de uma entrega com várias novidades nunca aparecem no state machine
-- `binary_sensor.monitor_de_uberlandia_ativo` — attrs: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro`
+**Device por subentry Município** (ex. "Uberlândia" → prefixo `uberlandia_`):
+- `sensor.uberlandia_erbs` (celular), `sensor.uberlandia_estacoes` (total)
+- `sensor.uberlandia_erbs_5g` + 4G/3G/2G — `state_class: measurement` (leitura pontual a cada atualização, não um acumulador — `total` geraria uma estatística de soma e trataria uma queda de contagem como reset); attrs: quebra por operadora
+- `sensor.uberlandia_base_atualizada_em`
+- `event.uberlandia_novas_torres` — event_types: `nova_erb`, `upgrade_tecnologia`; attrs do payload do webhook; um `async_write_ha_state()` por item da entrega (não um só no fim), senão itens 1..N-1 de uma entrega com várias novidades nunca aparecem no state machine
+- `binary_sensor.uberlandia_monitor_ativo` — attrs: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro`
 
 **Device por subentry Monitor iOS**:
-- `event.novidades_do_ios` — event_types: `nova`, `alterada`, `removida`; attrs: operadora, país, bundle from→to, recursos ±, rótulos ±, beta; mesmo write-por-item da entrega acima
-- `sensor.ultima_novidade_do_ios` — timestamp da última entrega
-- `binary_sensor.monitor_ios_ativo` — attrs: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro`
+- `event.monitor_ios_novidades` — event_types: `nova`, `alterada`, `removida`; attrs: operadora, país, bundle from→to, recursos ±, rótulos ±, beta; mesmo write-por-item da entrega acima
+- `sensor.monitor_ios_ultima_novidade` — timestamp da última entrega
+- `binary_sensor.monitor_ios_monitor_ativo` — attrs: `falhas_seguidas`, `ultima_entrega`, `ultimo_erro`
 
 Todo webhook válido também dispara `redes_moveis_fixas_novidade` no bus (payload cru + `subentry_id`).
 

@@ -27,7 +27,7 @@ async def test_event_ios(hass, entry_completa, mock_client):
     )
     await hass.async_block_till_done()
 
-    estado = hass.states.get("event.novidades_do_ios")
+    estado = hass.states.get("event.monitor_ios_novidades")
     assert estado.attributes["event_type"] == "alterada"
     assert estado.attributes["operadora"] == "TIM"
     assert estado.attributes["pais"] == "BR"
@@ -42,7 +42,7 @@ async def test_event_cidade(hass, entry_completa, mock_client):
     await _setup(hass, entry_completa, mock_client)
 
     sub_mun = _sub(entry_completa, "municipio")
-    entity_id = "event.novas_torres_em_sao_paulo_sp"
+    entity_id = "event.sao_paulo_sp_novas_torres"
     eventos = async_capture_events(hass, "state_changed")
 
     async_dispatcher_send(
@@ -92,7 +92,7 @@ async def test_event_cidade_nova_erb(hass, entry_completa, mock_client):
     )
     await hass.async_block_till_done()
 
-    estado = hass.states.get("event.novas_torres_em_sao_paulo_sp")
+    estado = hass.states.get("event.sao_paulo_sp_novas_torres")
     assert estado.attributes["event_type"] == "nova_erb"
     assert estado.attributes["operadora"] == "Claro"
     assert estado.attributes["id"] == "999"
@@ -120,7 +120,7 @@ async def test_event_ios_nova_e_removida(hass, entry_completa, mock_client):
         },
     )
     await hass.async_block_till_done()
-    estado = hass.states.get("event.novidades_do_ios")
+    estado = hass.states.get("event.monitor_ios_novidades")
     assert estado.attributes["event_type"] == "nova"
     assert estado.attributes["operadora"] == "Vivo"
 
@@ -139,7 +139,7 @@ async def test_event_ios_nova_e_removida(hass, entry_completa, mock_client):
         },
     )
     await hass.async_block_till_done()
-    estado = hass.states.get("event.novidades_do_ios")
+    estado = hass.states.get("event.monitor_ios_novidades")
     assert estado.attributes["event_type"] == "removida"
     assert estado.attributes["operadora"] == "Claro"
 
@@ -158,8 +158,8 @@ async def test_event_payload_malformado_nao_explode(
 
     sub_mun = _sub(entry_completa, "municipio")
     sub_ios = _sub(entry_completa, "monitor_ios")
-    entidade_mun = "event.novas_torres_em_sao_paulo_sp"
-    entidade_ios = "event.novidades_do_ios"
+    entidade_mun = "event.sao_paulo_sp_novas_torres"
+    entidade_ios = "event.monitor_ios_novidades"
 
     casos_municipio = [
         {},
@@ -207,7 +207,7 @@ async def test_event_teardown_desconecta_dispatcher(hass, entry_completa, mock_c
     await _setup(hass, entry_completa, mock_client)
 
     sub_mun = _sub(entry_completa, "municipio")
-    entity_id = "event.novas_torres_em_sao_paulo_sp"
+    entity_id = "event.sao_paulo_sp_novas_torres"
 
     assert await hass.config_entries.async_unload(entry_completa.entry_id)
     await hass.async_block_till_done()
