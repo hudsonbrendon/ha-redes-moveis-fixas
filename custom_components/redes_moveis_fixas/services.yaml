@@ -1,0 +1,69 @@
+consultar_cobertura:
+  fields:
+    latitude:
+      example: -5.812757
+      selector:
+        number:
+          min: -35
+          max: 6
+          step: any
+    longitude:
+      example: -35.255127
+      selector:
+        number:
+          min: -75
+          max: -28
+          step: any
+    entity_id:
+      selector:
+        entity:
+          filter:
+            domain: ["zone", "person"]
+
+buscar_estacoes:
+  fields:
+    latitude:
+      selector:
+        number:
+          min: -35
+          max: 6
+          step: any
+    longitude:
+      selector:
+        number:
+          min: -75
+          max: -28
+          step: any
+    entity_id:
+      selector:
+        entity:
+          filter:
+            domain: ["zone", "person"]
+    operadora:
+      example: "claro,vivo"
+      selector:
+        text:
+    tecnologia:
+      example: "NR,LTE"
+      selector:
+        text:
+    banda:
+      example: "78"
+      selector:
+        text:
+    limite:
+      selector:
+        number:
+          min: 1
+          max: 1000
+
+resumo_do_municipio:
+  fields:
+    codigo_ibge:
+      required: true
+      example: 3550308
+      selector:
+        number:
+          min: 1100015
+          max: 5300108
+          mode: box

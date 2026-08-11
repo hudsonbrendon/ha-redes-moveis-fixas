@@ -57,6 +57,7 @@ from .coordinator import (
     MonitoresCoordinator,
     MunicipioCoordinator,
 )
+from .services import async_setup_services
 from .webhook import handle_webhook
 
 _LOGGER = logging.getLogger(__name__)
@@ -222,6 +223,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         elif subentry.subentry_type == SUBENTRY_MONITOR_IOS:
             await _provisionar_monitor(hass, entry, subentry, client, webhook_id)
 
+    async_setup_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Registrado só no fim: as gravações de monitor_id acima não podem
     # disparar um reload no meio do próprio setup.
