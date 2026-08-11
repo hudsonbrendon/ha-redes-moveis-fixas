@@ -1,6 +1,13 @@
 """Testes das entities geo_location."""
 
+import asyncio
+
 from custom_components.redes_moveis_fixas.const import SUBENTRY_LOCAL
+from custom_components.redes_moveis_fixas.geo_location import (
+    ErbGeolocationEvent,
+    _GerenteErbs,
+    _remover,
+)
 
 from .test_sensor import _setup
 
@@ -104,6 +111,74 @@ async def test_atualizacao_remove_erb(hass, entry_completa, mock_client):
     estados = _erbs_geo(hass)
     assert len(estados) == 1
     assert "vivo" not in estados[0].name.lower()
+
+
+async def test_remover_nao_gira_pra_sempre_em_add_abortado(
+    hass, entry_completa, mock_client
+):
+    """Regressão do fix 1/5: add_to_platform_abort() zera `hass` pra sempre.
+
+    Antes do teto, `_remover` fazia `while ent.hass is None: await
+    asyncio.sleep(0)` — pra uma entity cujo add nunca aconteceu (abortado)
+    isso girava pelo resto do processo. `asyncio.wait_for` prova o teto:
+    sem ele, este teste estouraria em TimeoutError.
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+    sid = _sid_local(entry_completa)
+    coord = entry_completa.runtime_data.erbs[sid]
+    sub = entry_completa.subentries[sid]
+
+    # Entity construída direto, nunca passada por async_add_entities/entity_platform
+    # — `hass` nunca é setado, exatamente como no caso de um add abortado.
+    orfa = ErbGeolocationEvent(
+        coord,
+        sub,
+        {
+            "id": "orfa",
+            "operadora": "X",
+            "distancia_km": 9.9,
+            "coordenadas": {"lat": 0, "lon": 0},
+        },
+    )
+    assert orfa.hass is None
+
+    await asyncio.wait_for(_remover(orfa), timeout=2)
+    # não levantou, não travou — desistiu em silêncio.
+
+
+async def test_gerente_recupera_entity_com_add_abortado(
+    hass, entry_completa, mock_client
+):
+    """Regressão do fix 2/5: entity abortada não pode ficar "tracked" pra sempre.
+
+    Simula o add sempre abortando (callback fake nunca seta `ent.hass`).
+    Sem o purge no início de `_sincronizar`, a torre continuaria tracked
+    como se estivesse viva e nunca mais seria recriada.
+    """
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    await _setup(hass, entry_completa, mock_client)
+    sid = _sid_local(entry_completa)
+    coord = entry_completa.runtime_data.erbs[sid]
+    sub = entry_completa.subentries[sid]
+
+    lotes_adicionados = []
+    gerente = _GerenteErbs(
+        coord, sub, lambda ents, **kw: lotes_adicionados.append(ents), max_geo=25
+    )
+    # __init__ já rodou uma sincronização: 2 ERBs tracked, todas com hass
+    # None (o callback fake nunca as adiciona de verdade — abortadas).
+    assert len(lotes_adicionados) == 1
+    assert len(lotes_adicionados[0]) == 2
+    assert all(ent.hass is None for ent in gerente._entities.values())
+
+    # dados do coordinator não mudaram — mesmas 2 ERBs continuam no top-N.
+    gerente._sincronizar()
+
+    # sem o purge, isto seria [] (as duas já estariam "tracked"); com o
+    # purge, as duas foram descartadas e recriadas.
+    assert len(lotes_adicionados) == 2
+    assert len(lotes_adicionados[1]) == 2
 
 
 async def test_unload_remove_listener_do_gerente(hass, entry_completa, mock_client):

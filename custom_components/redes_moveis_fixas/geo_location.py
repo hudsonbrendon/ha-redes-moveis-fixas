@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from homeassistant.components.geo_location import GeolocationEvent
@@ -15,7 +16,15 @@ from .const import CONF_MAX_GEO, DEFAULT_MAX_GEO, DOMAIN, SUBENTRY_LOCAL
 from .coordinator import ErbsCoordinator
 from .entity import RMFEntity
 
+_LOGGER = logging.getLogger(__name__)
+
 SOURCE = DOMAIN
+
+# Teto de voltas do loop de espera em _remover: o add roda numa task própria
+# agendada por async_add_entities, então uma volta ou duas já bastam pro caso
+# comum. Um teto pequeno evita girar pra sempre no caso abortado (ver
+# _remover) sem impor atraso perceptível no caso normal.
+_MAX_ESPERA_ADD = 10
 
 
 async def async_setup_entry(
@@ -79,6 +88,19 @@ class _GerenteErbs:
 
     @callback
     def _sincronizar(self) -> None:
+        # Um add pode ser abortado pelo entity_platform (entity_id/unique_id
+        # duplicado, registry entry desabilitada...) — nesse caso `hass` fica
+        # None PRA SEMPRE (add_to_platform_abort não é reversível). Se a ERB
+        # nunca sai do top-N, ela ficaria "tracked" como viva indefinidamente
+        # e nunca mais tentaríamos recriar a entity. Uma ERB recém-criada
+        # neste mesmo ciclo também tem hass None (a task de add ainda não
+        # rodou), mas essa só entra em self._entities DEPOIS deste purge —
+        # então aqui só sobra quem já teve ciclos anteriores (com awaits de
+        # verdade entre eles) pra terminar de adicionar ou abortar.
+        for erb_id, ent in list(self._entities.items()):
+            if ent.hass is None:
+                del self._entities[erb_id]
+
         erbs = sorted(_erbs_validas(self._coordinator.data), key=_distancia)[
             : self._max
         ]
@@ -101,17 +123,27 @@ class _GerenteErbs:
 
 
 async def _remover(ent: ErbGeolocationEvent) -> None:
-    """Remove a entity com segurança.
+    """Remove a entity com segurança, sem nunca girar pra sempre.
 
     async_add_entities agenda a adição via task própria — se uma ERB sai do
-    top-N antes dessa task rodar, `ent.hass` ainda é None e
-    `async_remove()` levantaria AttributeError. Cede o loop até a adição
-    terminar (ponytail: busy-wait; trocar por espera na task de adição se
-    isso virar gargalo real).
+    top-N antes dessa task rodar, `ent.hass` ainda é None e `async_remove()`
+    levantaria AttributeError (`self.hass.loop...`). Mas se o add foi
+    ABORTADO (entity_id duplicado, registry entry desabilitada — ver
+    EntityPlatform._async_add_entity), `hass` fica None pra sempre: sem um
+    teto aqui, esperar "até ficar pronto" giraria pelo resto do processo.
+    Cede um número limitado de voltas do loop; se `hass` nunca aparecer, o
+    add foi abortado e a entity nunca chegou a escrever estado — não há
+    nada pra remover, só desiste em silêncio (loga em debug).
     """
-    while ent.hass is None:
+    for _ in range(_MAX_ESPERA_ADD):
+        if ent.hass is not None:
+            await ent.async_remove()
+            return
         await asyncio.sleep(0)
-    await ent.async_remove()
+    _LOGGER.debug(
+        "ERB %s: add nunca terminou (provavelmente abortado), nada a remover",
+        ent.erb_id,
+    )
 
 
 class ErbGeolocationEvent(RMFEntity, GeolocationEvent):

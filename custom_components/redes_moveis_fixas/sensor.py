@@ -173,6 +173,8 @@ class ErbsPorPertoSensor(RMFEntity, SensorEntity):
         por_op: dict[str, int] = {}
         por_tec: dict[str, int] = {}
         for erb in erbs:
+            if not isinstance(erb, dict):
+                continue
             op = erb.get("operadora")
             if op is not None:
                 por_op[op] = por_op.get(op, 0) + 1
@@ -198,7 +200,7 @@ class DistanciaErbSensor(RMFEntity, SensorEntity):
         candidatos = [
             e
             for e in (self.coordinator.data or {}).get("erbs", [])
-            if e.get("distancia_km") is not None
+            if isinstance(e, dict) and e.get("distancia_km") is not None
         ]
         return min(candidatos, key=lambda e: e["distancia_km"]) if candidatos else None
 
