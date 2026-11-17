@@ -1,0 +1,29 @@
+name: Relatar um problema
+description: Algo não funciona como deveria.
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema e o que você esperava.
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Versão do Home Assistant
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versão da integração
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs e diagnóstico
+      description: Cole os logs relevantes ou anexe o arquivo de diagnóstico (Dispositivos e serviços → integração → ⋮ → Baixar diagnóstico).
+      render: text

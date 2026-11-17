@@ -1,5 +1,6 @@
 {
-    "name": "Redes Móveis Fixas",
-    "homeassistant": "2026.8.0",
-    "hacs": "2.0.1"
+  "name": "Redes Móveis Fixas",
+  "homeassistant": "2026.8.0",
+  "hacs": "2.0.1",
+  "render_readme": true
 }

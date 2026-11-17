@@ -1,6 +1,17 @@
+<p align="center">
+  <img src="custom_components/redes_moveis_fixas/brand/logo@2x.png" alt="Redes Móveis Fixas" height="128">
+</p>
+
 # Redes Móveis Fixas
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Tests](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/actions/workflows/tests.yml/badge.svg)](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/actions/workflows/tests.yml)
+[![Hassfest](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/actions/workflows/hassfest.yml/badge.svg)](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/actions/workflows/hassfest.yml)
+[![HACS](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/actions/workflows/validate.yml/badge.svg)](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/actions/workflows/validate.yml)
+[![Release](https://img.shields.io/github/v/release/hudsonbrendon/ha-redes-moveis-fixas?sort=semver)](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/releases)
+[![Downloads](https://img.shields.io/github/downloads/hudsonbrendon/ha-redes-moveis-fixas/total)](https://github.com/hudsonbrendon/ha-redes-moveis-fixas/releases)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8.0%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![License](https://img.shields.io/github/license/hudsonbrendon/ha-redes-moveis-fixas)](LICENSE)
 
 Integração para o [Home Assistant](https://www.home-assistant.io/) que consulta a
 API [redesmoveisfixas.com](https://redesmoveisfixas.com) — cobertura móvel, torres
@@ -34,6 +45,9 @@ monitoramento e monitores já provisionados numa configuração anterior não s�
 afetados — a integração carrega normalmente sem URL pública nesses casos.
 
 ## Instalação
+
+[![Abrir no HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=hudsonbrendon&repository=ha-redes-moveis-fixas&category=integration)
+[![Adicionar integração](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=redes_moveis_fixas)
 
 Via [HACS](https://hacs.xyz/) como repositório customizado:
 
