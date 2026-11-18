@@ -21,7 +21,7 @@ from homeassistant.helpers.network import NoURLAvailableError
 from homeassistant.util import dt as dt_util
 from homeassistant.util.location import distance
 
-from .api import RMFAuthError, RMFClient, RMFError
+from .api import RMFAuthError, RMFClient, RMFError, RMFGoneError
 from .const import (
     CONF_ENTITY_ID,
     CONF_IBGE,
@@ -127,6 +127,23 @@ async def _provisionar_monitor(
             )
     except RMFAuthError as err:
         raise ConfigEntryAuthFailed(err) from err
+    except RMFGoneError as err:
+        # 410: a API não cria mais esse tipo de monitor (iOS foi descontinuado em
+        # 11/2026). Não é transitório: travar a entry inteira em SETUP_RETRY
+        # derrubaria também cobertura/ERBs/município. Segue sem o monitor e
+        # avisa nos Reparos.
+        _LOGGER.warning("Monitor de %s descontinuado pela API: %s", subentry.title, err)
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            f"{_PREFIXO_ISSUE_DESCONTINUADO}{subentry.subentry_id}",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="monitor_descontinuado",
+            translation_placeholders={"nome": subentry.title},
+            data={"entry_id": entry.entry_id, "subentry_id": subentry.subentry_id},
+        )
+        return False
     except RMFError as err:
         raise ConfigEntryNotReady(f"Falha ao criar monitor: {err}") from err
     # O secret só volta nessa resposta — precisa ser persistido agora.
@@ -143,6 +160,7 @@ async def _provisionar_monitor(
 
 
 _PREFIXO_ISSUE_MONITOR = "monitor_inativo_"
+_PREFIXO_ISSUE_DESCONTINUADO = "monitor_descontinuado_"
 
 
 def _checar_monitores(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -182,7 +200,16 @@ def _checar_monitores(hass: HomeAssistant, entry: ConfigEntry) -> None:
     # entry (via issue.data["entry_id"]) — nunca mexe nas de outra entry.
     registry = ir.async_get(hass)
     for (domain, issue_id), issue in list(registry.issues.items()):
-        if domain != DOMAIN or not issue_id.startswith(_PREFIXO_ISSUE_MONITOR):
+        if domain != DOMAIN:
+            continue
+        if issue_id.startswith(_PREFIXO_ISSUE_DESCONTINUADO):
+            # Some junto com a subentry (o usuário removeu o Monitor iOS).
+            if (issue.data or {}).get("entry_id") == entry.entry_id and issue_id[
+                len(_PREFIXO_ISSUE_DESCONTINUADO) :
+            ] not in entry.subentries:
+                ir.async_delete_issue(hass, DOMAIN, issue_id)
+            continue
+        if not issue_id.startswith(_PREFIXO_ISSUE_MONITOR):
             continue
         if (issue.data or {}).get("entry_id") != entry.entry_id:
             continue

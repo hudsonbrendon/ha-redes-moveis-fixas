@@ -14,11 +14,20 @@ class RMFError(Exception):
 
 
 class RMFAuthError(RMFError):
-    """Token inválido ou expirado (403)."""
+    """Token inválido, expirado ou revogado (401/403).
+
+    A API real responde 401 ("Token inválido, expirado ou revogado.") quando o
+    token de 90 dias vence; tratar só o 403 deixava a entry presa em
+    SETUP_RETRY em vez de abrir o reauth.
+    """
 
 
 class RMFRateLimitError(RMFError):
     """Cota excedida (429)."""
+
+
+class RMFGoneError(RMFError):
+    """Recurso descontinuado pela API (410), ex.: novos monitores de iOS."""
 
 
 class RMFNotFoundError(RMFError):
@@ -99,10 +108,12 @@ class RMFClient:
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
-                if resp.status == 403:
+                if resp.status in (401, 403):
                     raise RMFAuthError(await resp.text())
                 if resp.status == 429:
                     raise RMFRateLimitError(await resp.text())
+                if resp.status == 410:
+                    raise RMFGoneError(await resp.text())
                 if resp.status == 404:
                     raise RMFNotFoundError(await resp.text())
                 if resp.status >= 400:

@@ -6,6 +6,7 @@ from aioresponses import aioresponses
 
 from custom_components.redes_moveis_fixas.api import (
     RMFAuthError,
+    RMFGoneError,
     RMFClient,
     RMFError,
     RMFNotFoundError,
@@ -116,7 +117,7 @@ async def test_listar_monitores_aceita_envelope_e_lista(client):
 
 @pytest.mark.parametrize(
     ("status", "exc"),
-    [(403, RMFAuthError), (429, RMFRateLimitError), (404, RMFNotFoundError)],
+    [(401, RMFAuthError), (403, RMFAuthError), (429, RMFRateLimitError), (404, RMFNotFoundError), (410, RMFGoneError)],
 )
 async def test_erros(client, status, exc):
     with aioresponses() as m:

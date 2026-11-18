@@ -4,12 +4,16 @@
       "user": {
         "title": "Redes Móveis Fixas",
         "description": "API token (Bearer). Create yours at redesmoveisfixas.com/createapi.",
-        "data": {"token": "Token"}
+        "data": {
+          "token": "Token"
+        }
       },
       "reauth_confirm": {
         "title": "Token expired",
         "description": "The RMF API token expired (90-day validity). Enter a new one.",
-        "data": {"token": "Token"}
+        "data": {
+          "token": "Token"
+        }
       }
     },
     "error": {
@@ -24,11 +28,15 @@
   "config_subentries": {
     "local": {
       "entry_type": "Location",
-      "initiate_flow": {"user": "Add location"},
+      "initiate_flow": {
+        "user": "Add location"
+      },
       "step": {
         "user": {
           "title": "Location type",
-          "data": {"modo": "Track"}
+          "data": {
+            "modo": "Track"
+          }
         },
         "alvo": {
           "title": "Location and intervals",
@@ -43,7 +51,9 @@
     },
     "municipio": {
       "entry_type": "Municipality",
-      "initiate_flow": {"user": "Add municipality"},
+      "initiate_flow": {
+        "user": "Add municipality"
+      },
       "error": {
         "ibge_invalido": "IBGE code not found",
         "cannot_connect": "Failed to connect to the API"
@@ -61,7 +71,9 @@
     },
     "monitor_ios": {
       "entry_type": "iOS monitor",
-      "initiate_flow": {"user": "Add iOS monitor"},
+      "initiate_flow": {
+        "user": "Add iOS monitor"
+      },
       "step": {
         "user": {
           "title": "iOS carrier bundles",
@@ -90,11 +102,18 @@
           "subentry_not_found": "This location/monitor no longer exists"
         }
       }
+    },
+    "monitor_descontinuado": {
+      "title": "Monitor \"{nome}\" can no longer be created",
+      "description": "The Redes Móveis Fixas API discontinued new monitors of this kind (HTTP 410). The rest of the integration keeps working; this subentry just won't receive updates. Remove the \"{nome}\" subentry if you no longer need it."
     }
   },
   "selector": {
     "modo": {
-      "options": {"zona": "Fixed zone", "pessoa": "Follow person"}
+      "options": {
+        "zona": "Fixed zone",
+        "pessoa": "Follow person"
+      }
     }
   },
   "services": {
@@ -102,8 +121,14 @@
       "name": "Query coverage",
       "description": "Queries mobile coverage (carrier, technology, signal strength) at a location.",
       "fields": {
-        "latitude": {"name": "Latitude", "description": "Latitude of the point to query."},
-        "longitude": {"name": "Longitude", "description": "Longitude of the point to query."},
+        "latitude": {
+          "name": "Latitude",
+          "description": "Latitude of the point to query."
+        },
+        "longitude": {
+          "name": "Longitude",
+          "description": "Longitude of the point to query."
+        },
         "entity_id": {
           "name": "Zone or person",
           "description": "Zone or person to read latitude/longitude from. If given, takes precedence over the explicit latitude/longitude fields."
@@ -114,23 +139,44 @@
       "name": "Search stations",
       "description": "Searches for nearby ERBs (base transceiver stations) at a location, with optional carrier, technology and band filters.",
       "fields": {
-        "latitude": {"name": "Latitude", "description": "Latitude of the search point."},
-        "longitude": {"name": "Longitude", "description": "Longitude of the search point."},
+        "latitude": {
+          "name": "Latitude",
+          "description": "Latitude of the search point."
+        },
+        "longitude": {
+          "name": "Longitude",
+          "description": "Longitude of the search point."
+        },
         "entity_id": {
           "name": "Zone or person",
           "description": "Zone or person to read latitude/longitude from. If given, takes precedence over the explicit latitude/longitude fields."
         },
-        "operadora": {"name": "Carrier", "description": "Filter by carrier(s), comma-separated."},
-        "tecnologia": {"name": "Technology", "description": "Filter by technology(ies), comma-separated."},
-        "banda": {"name": "Band", "description": "Filter by band(s), comma-separated."},
-        "limite": {"name": "Limit", "description": "Maximum number of stations to return."}
+        "operadora": {
+          "name": "Carrier",
+          "description": "Filter by carrier(s), comma-separated."
+        },
+        "tecnologia": {
+          "name": "Technology",
+          "description": "Filter by technology(ies), comma-separated."
+        },
+        "banda": {
+          "name": "Band",
+          "description": "Filter by band(s), comma-separated."
+        },
+        "limite": {
+          "name": "Limit",
+          "description": "Maximum number of stations to return."
+        }
       }
     },
     "resumo_do_municipio": {
       "name": "Municipality summary",
       "description": "Queries the aggregated station summary for a municipality by its IBGE code.",
       "fields": {
-        "codigo_ibge": {"name": "IBGE code", "description": "IBGE code of the municipality (7 digits)."}
+        "codigo_ibge": {
+          "name": "IBGE code",
+          "description": "IBGE code of the municipality (7 digits)."
+        }
       }
     }
   }

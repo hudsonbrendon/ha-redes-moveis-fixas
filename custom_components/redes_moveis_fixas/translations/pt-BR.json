@@ -4,12 +4,16 @@
       "user": {
         "title": "Redes Móveis Fixas",
         "description": "Token da API (Bearer). Crie o seu em redesmoveisfixas.com/createapi.",
-        "data": {"token": "Token"}
+        "data": {
+          "token": "Token"
+        }
       },
       "reauth_confirm": {
         "title": "Token expirado",
         "description": "O token da API RMF expirou (validade de 90 dias). Informe um novo.",
-        "data": {"token": "Token"}
+        "data": {
+          "token": "Token"
+        }
       }
     },
     "error": {
@@ -24,11 +28,15 @@
   "config_subentries": {
     "local": {
       "entry_type": "Local",
-      "initiate_flow": {"user": "Adicionar local"},
+      "initiate_flow": {
+        "user": "Adicionar local"
+      },
       "step": {
         "user": {
           "title": "Tipo de local",
-          "data": {"modo": "Acompanhar"}
+          "data": {
+            "modo": "Acompanhar"
+          }
         },
         "alvo": {
           "title": "Local e intervalos",
@@ -43,7 +51,9 @@
     },
     "municipio": {
       "entry_type": "Município",
-      "initiate_flow": {"user": "Adicionar município"},
+      "initiate_flow": {
+        "user": "Adicionar município"
+      },
       "error": {
         "ibge_invalido": "Código IBGE não encontrado",
         "cannot_connect": "Falha ao conectar na API"
@@ -61,7 +71,9 @@
     },
     "monitor_ios": {
       "entry_type": "Monitor iOS",
-      "initiate_flow": {"user": "Adicionar monitor iOS"},
+      "initiate_flow": {
+        "user": "Adicionar monitor iOS"
+      },
       "step": {
         "user": {
           "title": "Carrier bundles do iOS",
@@ -90,11 +102,18 @@
           "subentry_not_found": "Este local/monitor não existe mais"
         }
       }
+    },
+    "monitor_descontinuado": {
+      "title": "Monitor \"{nome}\" não pode ser criado",
+      "description": "A API Redes Móveis Fixas descontinuou a criação de novos monitores desse tipo (HTTP 410). O resto da integração continua funcionando; as novidades dessa subentry deixam de chegar. Se não precisar mais dela, remova a subentry \"{nome}\" na integração."
     }
   },
   "selector": {
     "modo": {
-      "options": {"zona": "Zona fixa", "pessoa": "Seguir pessoa"}
+      "options": {
+        "zona": "Zona fixa",
+        "pessoa": "Seguir pessoa"
+      }
     }
   },
   "services": {
@@ -102,8 +121,14 @@
       "name": "Consultar cobertura",
       "description": "Consulta a cobertura móvel (operadora, tecnologia, força de sinal) numa localização.",
       "fields": {
-        "latitude": {"name": "Latitude", "description": "Latitude do ponto a consultar."},
-        "longitude": {"name": "Longitude", "description": "Longitude do ponto a consultar."},
+        "latitude": {
+          "name": "Latitude",
+          "description": "Latitude do ponto a consultar."
+        },
+        "longitude": {
+          "name": "Longitude",
+          "description": "Longitude do ponto a consultar."
+        },
         "entity_id": {
           "name": "Zona ou pessoa",
           "description": "Zona ou pessoa da qual ler latitude/longitude. Se informado, tem precedência sobre os campos latitude/longitude explícitos."
@@ -114,23 +139,44 @@
       "name": "Buscar estações",
       "description": "Busca as ERBs (estações rádio base) próximas a uma localização, com filtros opcionais de operadora, tecnologia e banda.",
       "fields": {
-        "latitude": {"name": "Latitude", "description": "Latitude do ponto de busca."},
-        "longitude": {"name": "Longitude", "description": "Longitude do ponto de busca."},
+        "latitude": {
+          "name": "Latitude",
+          "description": "Latitude do ponto de busca."
+        },
+        "longitude": {
+          "name": "Longitude",
+          "description": "Longitude do ponto de busca."
+        },
         "entity_id": {
           "name": "Zona ou pessoa",
           "description": "Zona ou pessoa da qual ler latitude/longitude. Se informado, tem precedência sobre os campos latitude/longitude explícitos."
         },
-        "operadora": {"name": "Operadora", "description": "Filtra por operadora(s), separadas por vírgula."},
-        "tecnologia": {"name": "Tecnologia", "description": "Filtra por tecnologia(s), separadas por vírgula."},
-        "banda": {"name": "Banda", "description": "Filtra por banda(s), separadas por vírgula."},
-        "limite": {"name": "Limite", "description": "Número máximo de estações a retornar."}
+        "operadora": {
+          "name": "Operadora",
+          "description": "Filtra por operadora(s), separadas por vírgula."
+        },
+        "tecnologia": {
+          "name": "Tecnologia",
+          "description": "Filtra por tecnologia(s), separadas por vírgula."
+        },
+        "banda": {
+          "name": "Banda",
+          "description": "Filtra por banda(s), separadas por vírgula."
+        },
+        "limite": {
+          "name": "Limite",
+          "description": "Número máximo de estações a retornar."
+        }
       }
     },
     "resumo_do_municipio": {
       "name": "Resumo do município",
       "description": "Consulta o resumo agregado de estações de um município pelo código IBGE.",
       "fields": {
-        "codigo_ibge": {"name": "Código IBGE", "description": "Código IBGE do município (7 dígitos)."}
+        "codigo_ibge": {
+          "name": "Código IBGE",
+          "description": "Código IBGE do município (7 dígitos)."
+        }
       }
     }
   }

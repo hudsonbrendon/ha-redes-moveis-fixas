@@ -35,6 +35,8 @@ from .const import (
     CONF_INTERVALO_MUNICIPIO,
     CONF_MAX_GEO,
     CONF_MODO,
+    CONF_MONITOR_ID,
+    CONF_MONITOR_SECRET,
     CONF_MONITORAR,
     CONF_OPERADORAS,
     CONF_PAISES,
@@ -103,8 +105,25 @@ class RMFConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             errors = await self._checar(user_input[CONF_TOKEN])
             if not errors:
+                entry = self._get_reauth_entry()
+                if user_input[CONF_TOKEN] != entry.data.get(CONF_TOKEN):
+                    # Monitores pertencem ao token que os criou: o novo não os
+                    # enxerga (nem os do token vencido). Sem limpar, a subentry
+                    # fica com um monitor_id morto e abre "monitor inativo";
+                    # limpando, o reload abaixo provisiona um monitor novo.
+                    for sub in entry.subentries.values():
+                        if sub.data.get(CONF_MONITOR_ID):
+                            self.hass.config_entries.async_update_subentry(
+                                entry,
+                                sub,
+                                data={
+                                    k: v
+                                    for k, v in sub.data.items()
+                                    if k not in (CONF_MONITOR_ID, CONF_MONITOR_SECRET)
+                                },
+                            )
                 return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(),
+                    entry,
                     unique_id=_uid(user_input[CONF_TOKEN]),
                     data_updates={CONF_TOKEN: user_input[CONF_TOKEN]},
                 )

@@ -143,3 +143,43 @@ async def test_validar_token_real_propaga_403(hass):
         m.get(f"{BASE_URL}/api/monitorar-ios", status=403, body="forbidden")
         with pytest.raises(RMFAuthError):
             await _validar_token(hass, "tok_ruim")
+
+
+async def test_reauth_token_novo_limpa_monitores(hass):
+    """Token novo não enxerga monitores do antigo: o reauth limpa monitor_id/secret
+    pra o reload provisionar de novo; subentries sem monitor ficam intactas."""
+    from homeassistant.config_entries import ConfigSubentryData
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"token": "tok_velho"},
+        unique_id=_uid("tok_velho"),
+        subentries_data=[
+            ConfigSubentryData(
+                data={"codigo_ibge": 2403251, "monitorar": True,
+                      "monitor_id": "m1", "monitor_secret": "s1"},
+                subentry_type="municipio", title="Parnamirim", unique_id="2403251",
+            ),
+            ConfigSubentryData(
+                data={"modo": "zona", "entity_id": "zone.home"},
+                subentry_type="local", title="Casa", unique_id="zone.home",
+            ),
+        ],
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+    with (
+        patch(
+            "custom_components.redes_moveis_fixas.config_flow._validar_token",
+            AsyncMock(return_value=None),
+        ),
+        patch("homeassistant.config_entries.ConfigEntries.async_schedule_reload"),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "tok_novo"}
+        )
+    assert result["reason"] == "reauth_successful"
+    subs = {s.title: s.data for s in entry.subentries.values()}
+    assert "monitor_id" not in subs["Parnamirim"] and "monitor_secret" not in subs["Parnamirim"]
+    assert subs["Parnamirim"]["codigo_ibge"] == 2403251
+    assert subs["Casa"] == {"modo": "zona", "entity_id": "zone.home"}

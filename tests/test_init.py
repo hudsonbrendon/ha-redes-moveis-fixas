@@ -417,3 +417,32 @@ async def test_unload_libera_webhook_e_listener(hass, mock_client):
     )
     await hass.async_block_till_done()
     assert coord.lat == -5.8
+
+
+async def test_monitor_ios_descontinuado_410_nao_trava_setup(hass, entry_completa, mock_client):
+    """API passou a responder 410 pra novos monitores de iOS: a entry carrega
+    mesmo assim (cobertura/município seguem) e abre um aviso nos Reparos."""
+    from homeassistant.helpers import issue_registry as ir
+
+    from custom_components.redes_moveis_fixas.api import RMFGoneError
+
+    hass.states.async_set("zone.home", "0", {"latitude": -5.8, "longitude": -35.2})
+    mock_client.async_criar_monitor_ios.side_effect = RMFGoneError("410")
+    with (
+        patch("custom_components.redes_moveis_fixas.RMFClient", return_value=mock_client),
+        patch(
+            "custom_components.redes_moveis_fixas.webhook_async_generate_url",
+            return_value="https://ha.example.com/api/webhook/wh_fixo",
+        ),
+    ):
+        assert await hass.config_entries.async_setup(entry_completa.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry_completa.state is ConfigEntryState.LOADED
+    subs = {s.subentry_type: s for s in entry_completa.subentries.values()}
+    assert "monitor_id" not in subs["monitor_ios"].data
+    assert subs["municipio"].data["monitor_id"] == "9f1c0001"
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, f"monitor_descontinuado_{subs['monitor_ios'].subentry_id}"
+    )
+    assert issue is not None and issue.translation_key == "monitor_descontinuado"
